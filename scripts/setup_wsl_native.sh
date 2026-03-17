@@ -44,20 +44,9 @@ cis_1_0() {
     log_info "Installing Java (CIS 1.2)..."
     apt-get install openjdk-8-jdk -y
     
-    log_info "Installing Python 3.9 (CIS 1.3)..."
-    apt-get install software-properties-common -y
-    add-apt-repository ppa:deadsnakes/ppa -y 2>/dev/null || true
-    apt-get update
-    apt-get install python3.9 python3.9-venv python3.9-distutils -y 2>/dev/null || true
-    
-    log_info "Verifying Python version..."
-    python3 --version
-    
-    log_info "Installing Python dependencies for cqlsh..."
-    python3.9 -m pip install --break-system-packages six 2>/dev/null || python3 -m pip install --break-system-packages six 2>/dev/null || true
-    
-    echo "export CQLSH_PYTHON=/usr/bin/python3.9" >> ~/.bashrc
-    export CQLSH_PYTHON=/usr/bin/python3.9
+    log_info "Installing Python 3.10 (CIS 1.3)..."
+    sudo apt install python3.10
+    python3.10 --version
     
     log_info "Prerequisites complete!"
 }
@@ -93,15 +82,18 @@ cis_1_4() {
     echo -e "${CYAN}  CIS 1.4: Install Cassandra${NC}"
     echo -e "${CYAN}============================================${NC}"
     
-    log_info "Adding Cassandra repository..."
-    curl https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg
+    log_info "Installing prerequisites..."
+    sudo apt-get install curl gnupg -y
     
-    echo "deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main" \
-        > /etc/apt/sources.list.d/cassandra.sources.list
+    log_info "Adding Cassandra repository..."
+    sudo apt-get install -y gnupg2 curl
+    curl -fsSL https://downloads.apache.org/cassandra/KEYS | sudo gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg
+    
+    echo "deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main" | sudo tee /etc/apt/sources.list.d/cassandra.sources.list
     
     log_info "Installing Cassandra..."
-    apt-get update
-    apt-get install cassandra -y
+    sudo apt-get update
+    sudo apt-get install cassandra -y
     
     log_info "Verifying Cassandra version..."
     cassandra -v
@@ -119,7 +111,7 @@ cis_1_6() {
     echo -e "${CYAN}============================================${NC}"
     
     sudo apt install systemd-timesyncd
-    sudo systemctl enable --now systemd-timesyncd.service
+    sudo timedatectl set-ntp true
     timedatectl status
     
     log_info "Clock sync complete!"
@@ -167,7 +159,7 @@ cis_2_1() {
     sed -i 's/authorizer: AllowAllAuthorizer/authorizer: CassandraAuthorizer/' /etc/cassandra/cassandra.yaml
     
     log_info "Ensure network_authorizer is compatible..."
-    sed -i 's/network_authorizer: CassandraNetworkAuthorizer/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml
+    # Network authorizer will be set to CassandraNetworkAuthorizer in cis_3_5
     
     log_info "Restarting Cassandra..."
     systemctl restart cassandra
@@ -190,22 +182,22 @@ cis_3_1() {
     echo -e "${CYAN}============================================${NC}"
     
     log_info "Changing default password..."
-    cqlsh -u cassandra -p cassandra -e "ALTER ROLE 'cassandra' WITH PASSWORD = '${NEW_CASSANDRA_PASSWORD}';"
+    cqlsh -u cassandra -p cassandra -e "ALTER ROLE 'cassandra' WITH PASSWORD = 'N3wStr0ng@Pass!';"
     
     log_info "Creating cis_admin role..."
-    cqlsh -u cassandra -p "${NEW_CASSANDRA_PASSWORD}" -e "CREATE ROLE 'cis_admin' WITH PASSWORD='${CIS_ADMIN_PASSWORD}' AND LOGIN=TRUE;"
+    cqlsh -u cassandra -p N3wStr0ng@Pass! -e "CREATE ROLE 'cis_admin' WITH PASSWORD='Adm1n@Secure99!' AND LOGIN=TRUE;"
     
     log_info "Granting permissions..."
-    cqlsh -u cassandra -p "${NEW_CASSANDRA_PASSWORD}" -e "GRANT ALL PERMISSIONS ON ALL KEYSPACES TO cis_admin;"
+    cqlsh -u cassandra -p N3wStr0ng@Pass! -e "GRANT ALL PERMISSIONS ON ALL KEYSPACES TO cis_admin;"
     
     log_info "Making cis_admin a superuser..."
-    cqlsh -u cassandra -p "${NEW_CASSANDRA_PASSWORD}" -e "ALTER ROLE 'cis_admin' WITH SUPERUSER=TRUE;"
+    cqlsh -u cassandra -p N3wStr0ng@Pass! -e "ALTER ROLE 'cis_admin' WITH SUPERUSER=TRUE;"
     
-    log_info "Demoting cassandra user..."
-    cqlsh -u cassandra -p "${NEW_CASSANDRA_PASSWORD}" -e "ALTER ROLE 'cassandra' WITH SUPERUSER=FALSE;"
+    log_info "Demoting cassandra user (as cis_admin)..."
+    cqlsh -u cis_admin -p Adm1n@Secure99! -e "ALTER ROLE 'cassandra' WITH SUPERUSER=FALSE;"
     
     log_info "Verifying roles..."
-    cqlsh -u cis_admin -p "${CIS_ADMIN_PASSWORD}" -e "SELECT role, is_superuser FROM system_auth.roles;"
+    cqlsh -u cis_admin -p Adm1n@Secure99! -e "SELECT role, is_superuser FROM system_auth.roles;"
     
     log_info "Passwords & Roles complete!"
 }
