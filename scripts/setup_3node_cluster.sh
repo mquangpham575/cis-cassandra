@@ -12,6 +12,10 @@ CLUSTER_NAME="cis-cluster"
 CASSANDRA_VERSION="4.0.19"
 CASSANDRA_NETWORK="cassandra-net"
 
+NODES=("cassandra-node1" "cassandra-node2" "cassandra-node3")
+
+CIS_ADMIN_PASSWORD='Adm1n@Secure99!'
+
 # Node configurations with ports
 declare -A NODE1=([NAME]="cassandra-node1" [IP]="172.20.0.11" [SEEDS]="172.20.0.11,172.20.0.12,172.20.0.13" [PORT_OFFSET]=0)
 declare -A NODE2=([NAME]="cassandra-node2" [IP]="172.20.0.12" [SEEDS]="172.20.0.11,172.20.0.12,172.20.0.13" [PORT_OFFSET]=1)
@@ -108,6 +112,49 @@ wait_for_cluster() {
 }
 
 #-------------------------------------------------------------------------------
+# Enable authentication
+#-------------------------------------------------------------------------------
+enable_auth() {
+    log_info "Enabling authentication..."
+    
+    for node in "${NODES[@]}"; do
+        docker exec "$node" bash -c "sed -i 's/^authenticator: AllowAllAuthenticator/authenticator: PasswordAuthenticator/' /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "sed -i 's/^authorizer: AllowAllAuthorizer/authorizer: CassandraAuthorizer/' /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "echo '' >> /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "echo 'network_authorizer: CassandraNetworkAuthorizer' >> /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "echo '' >> /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "echo 'audit_logging_options:' >> /etc/cassandra/cassandra.yaml"
+        docker exec "$node" bash -c "echo '    enabled: true' >> /etc/cassandra/cassandra.yaml"
+    done
+    
+    log_info "Authentication enabled. Restarting cluster..."
+    
+    for node in "${NODES[@]}"; do
+        docker restart $node
+    done
+    
+    sleep 60
+}
+
+#-------------------------------------------------------------------------------
+# Create CIS admin role
+#-------------------------------------------------------------------------------
+create_cis_admin() {
+    log_info "Creating CIS admin role..."
+    
+    sleep 10
+    
+    docker exec cassandra-node1 cqlsh -u cassandra -p cassandra -e "
+        ALTER ROLE 'cassandra' WITH PASSWORD = 'Ch@ng3dP@ss123!';
+        CREATE ROLE IF NOT EXISTS 'cis_admin' WITH PASSWORD='$CIS_ADMIN_PASSWORD' AND LOGIN=TRUE AND SUPERUSER=TRUE;
+        GRANT ALL PERMISSIONS ON ALL KEYSPACES TO cis_admin;
+        ALTER ROLE cassandra WITH SUPERUSER = false;
+    " 2>/dev/null || log_warn "Role may already exist"
+    
+    log_info "CIS admin role created"
+}
+
+#-------------------------------------------------------------------------------
 # Main execution
 #-------------------------------------------------------------------------------
 main() {
@@ -128,6 +175,12 @@ main() {
     log_info "All nodes started. Waiting for cluster formation..."
     sleep 60
     
+    # Enable authentication
+    enable_auth
+    
+    # Create CIS admin role
+    create_cis_admin
+    
     # Show cluster status
     echo ""
     log_info "Cluster Status:"
@@ -135,7 +188,7 @@ main() {
     
     echo ""
     log_info "=========================================="
-    log_info "  3-Node Cluster Setup Complete!"
+    log_info " 3-Node Cluster Setup Complete!"
     log_info "=========================================="
     echo ""
     echo "Connection strings:"

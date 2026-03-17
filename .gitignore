@@ -1,0 +1,6 @@
+reports/
+.agent/
+*.jks
+*.crt
+# Docker local ignore
+.docker-node-data/
