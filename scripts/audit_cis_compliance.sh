@@ -34,17 +34,17 @@ log_header() {
 
 check_pass() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((PASS++))
+    PASS=$((PASS + 1))
 }
 
 check_fail() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 }
 
 check_manual() {
     echo -e "${YELLOW}[MANUAL]${NC} $1"
-    ((MANUAL++))
+    MANUAL=$((MANUAL + 1))
 }
 
 run_check() {
@@ -103,13 +103,13 @@ audit_section_2() {
     # 2.1 PasswordAuthenticator
     for node in "${NODES[@]}"; do
         run_check "2.1 - PasswordAuthenticator enabled on $node" \
-            "docker exec $node grep 'authenticator: PasswordAuthenticator' /etc/cassandra/cassandra.yaml"
+            "docker exec $node bash -c 'grep authenticator: /etc/cassandra/cassandra.yaml | grep -q PasswordAuthenticator'"
     done
     
     # 2.2 CassandraAuthorizer
     for node in "${NODES[@]}"; do
         run_check "2.2 - CassandraAuthorizer enabled on $node" \
-            "docker exec $node grep 'authorizer: CassandraAuthorizer' /etc/cassandra/cassandra.yaml"
+            "docker exec $node bash -c 'grep authorizer: /etc/cassandra/cassandra.yaml | grep -q CassandraAuthorizer'"
     done
 }
 
@@ -125,7 +125,7 @@ audit_section_3() {
     
     # 3.2 Default password changed
     run_check "3.2 - Default password changed" \
-        "docker exec cassandra-node1 cqlsh -u cassandra -p cassandra -e 'SELECT * FROM system_auth.roles;' 2>&1 | grep -q 'AuthenticationError'"
+        "docker exec cassandra-node1 cqlsh -u cassandra -p cassandra -e 'SELECT * FROM system_auth.roles;' 2>&1 | grep -q 'AuthenticationFailed'"
     
     # 3.3 Review roles (Manual)
     check_manual "3.3 - Review all roles for unnecessary permissions (manual review required)"
@@ -136,13 +136,13 @@ audit_section_3() {
     # 3.5 Listen address
     for node in "${NODES[@]}"; do
         run_check "3.5 - Listen address restricted on $node" \
-            "docker exec $node grep 'listen_address: 127.0.0.1' /etc/cassandra/cassandra.yaml"
+            "docker exec $node bash -c 'grep listen_address /etc/cassandra/cassandra.yaml | grep -q 127.0.0.1'"
     done
     
     # 3.6 Network authorizer
     for node in "${NODES[@]}"; do
         run_check "3.6 - Network authorizer enabled on $node" \
-            "docker exec $node grep 'network_authorizer: CassandraNetworkAuthorizer' /etc/cassandra/cassandra.yaml"
+            "docker exec $node bash -c 'grep network_authorizer /etc/cassandra/cassandra.yaml | grep -q CassandraNetworkAuthorizer'"
     done
     
     # 3.7 Role permissions (Manual)
@@ -162,13 +162,13 @@ audit_section_4() {
     # 4.1 Logging enabled
     for node in "${NODES[@]}"; do
         run_check "4.1 - Logging enabled on $node" \
-            "docker exec $node nodetool getlogginglevels | grep 'ROOT.*INFO'"
+            "docker exec $node nodetool getlogginglevels | grep -q 'ROOT.*INFO'"
     done
     
     # 4.2 Audit logging
     for node in "${NODES[@]}"; do
         run_check "4.2 - Audit logging enabled on $node" \
-            "docker exec $node grep -A1 'audit_logging_options:' /etc/cassandra/cassandra.yaml | grep 'enabled: true'"
+            "docker exec $node bash -c 'grep -A1 audit_logging_options /etc/cassandra/cassandra.yaml | grep -q enabled: true'"
     done
 }
 
@@ -181,13 +181,13 @@ audit_section_5() {
     # 5.1 Inter-node encryption
     for node in "${NODES[@]}"; do
         run_check "5.1 - Inter-node encryption enabled on $node" \
-            "docker exec $node grep 'internode_encryption: all' /etc/cassandra/cassandra.yaml"
+            "docker exec $node bash -c 'grep internode_encryption /etc/cassandra/cassandra.yaml | grep -q all'"
     done
     
     # 5.2 Client encryption
     for node in "${NODES[@]}"; do
         run_check "5.2 - Client encryption enabled on $node" \
-            "docker exec $node grep -A1 'client_encryption_options:' /etc/cassandra/cassandra.yaml | grep 'enabled: true'"
+            "docker exec $node bash -c 'grep -A1 client_encryption_options /etc/cassandra/cassandra.yaml | grep -q enabled: true'"
     done
 }
 
@@ -199,7 +199,7 @@ verify_cluster() {
     
     # Check all nodes are running
     for node in "${NODES[@]}"; do
-        run_check "Node $node is running" "docker ps | grep $node"
+        run_check "Node $node is running" "docker ps --format '{{.Names}}' | grep -q '^$node$'"
     done
     
     # Check cluster status
@@ -260,7 +260,7 @@ main() {
     
     # Verify nodes are running
     for node in "${NODES[@]}"; do
-        if ! docker ps | grep -q $node; then
+        if ! docker ps -q --filter "name=^${node}$" > /dev/null 2>&1; then
             echo -e "${RED}ERROR: $node is not running${NC}"
             echo "Run setup_3node_cluster.sh first"
             exit 1

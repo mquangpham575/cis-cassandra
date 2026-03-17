@@ -1,93 +1,21 @@
 #===============================================================================
 # CIS Apache Cassandra 4.0 - Hardened Configuration Template
 #===============================================================================
-# This is a template showing all CIS hardening settings
-# Copy to config/ directory and deploy to nodes
-#===============================================================================
 
-# Cluster settings
 cluster_name: cis-cluster
 num_tokens: 256
 
-#=========================================================================
-# CIS 1.5 - Run as non-root user
-#=========================================================================
-# These must be set to run Cassandra as non-root
-# user: cassandra
-# group: cassandra
-
-#=========================================================================
-# CIS 2.1 - Enable PasswordAuthenticator
-#=========================================================================
 authenticator: PasswordAuthenticator
-
-#=========================================================================
-# CIS 2.2 - Enable CassandraAuthorizer
-#=========================================================================
 authorizer: CassandraAuthorizer
 
-#=========================================================================
-# CIS 3.5 - Restrict network listen address
-#=========================================================================
-# Must NOT be 0.0.0.0 - use localhost or specific IP
-listen_address: 127.0.0.1
-
-#=========================================================================
-# CIS 3.6 - Enable Network Authorizer
-#=========================================================================
-network_authorizer: CassandraNetworkAuthorizer
-
-#=========================================================================
-# CIS 4.2 - Enable Audit Logging
-#=========================================================================
-audit_logging_options:
-    enabled: true
-
-#=========================================================================
-# CIS 5.1 - Inter-node Encryption
-#=========================================================================
-server_encryption_options:
-    internode_encryption: all
-    keystore: /etc/cassandra/ssl/keystore.jks
-    keystore_password: cassandra123
-    truststore: /etc/cassandra/ssl/truststore.jks
-    truststore_password: cassandra123
-    require_client_auth: false
-
-#=========================================================================
-# CIS 5.2 - Client Encryption
-#=========================================================================
-client_encryption_options:
-    enabled: true
-    optional: false
-    keystore: /etc/cassandra/ssl/keystore.jks
-    keystore_password: cassandra123
-    truststore: /etc/cassandra/ssl/truststore.jks
-    truststore_password: cassandra123
-    require_client_auth: false
-
-# Additional recommended settings
-# Native transport ports
-native_transport_port: 9042
-native_transport_port_ssl: 9142
-
-# RPC settings
 rpc_address: 127.0.0.1
-rpc_port: 9160
 
-# Storage ports
+native_transport_port: 9042
+
 storage_port: 7000
-ssl_storage_port: 7001
 
-# Seeds - comma separated IP addresses
-seeds: 172.20.0.11,172.20.0.12,172.20.0.13
-
-# Data directories
 data_file_directories:
     - /var/lib/cassandra/data
 commitlog_directory: /var/lib/cassandra/commitlog
 saved_caches_directory: /var/lib/cassandra/saved_caches
 hints_directory: /var/lib/cassandra/hints
-
-# Logging (CIS 4.1)
-# Configured in /etc/cassandra/logback.xml

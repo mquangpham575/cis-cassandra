@@ -58,8 +58,8 @@ start_node() {
     local seeds=$3
     local offset=$4
     
-    local host_storage_port=$((7000 + offset))
-    local host_ssl_port=$((7001 + offset))
+    local host_storage_port=$((7000 + offset * 100))
+    local host_ssl_port=$((7001 + offset * 100))
     local host_cql_port=$((9042 + offset))
     
     log_info "Starting $node_name..."
@@ -74,6 +74,8 @@ start_node() {
         -e CASSANDRA_RACK=rack1 \
         -e CASSANDRA_BROADCAST_ADDRESS=$ip \
         -e CASSANDRA_LISTEN_ADDRESS=$ip \
+        -e MAX_HEAP_SIZE="512M" \
+        -e HEAP_NEWSIZE="256M" \
         -p ${host_storage_port}:7000 \
         -p ${host_ssl_port}:7001 \
         -p ${host_cql_port}:9042 \
@@ -118,13 +120,13 @@ main() {
     
     # Start nodes
     start_node "cassandra-node1" "${NODE1[IP]}" "${NODE1[SEEDS]}" "${NODE1[PORT_OFFSET]}"
-    sleep 10
+    sleep 30
     start_node "cassandra-node2" "${NODE2[IP]}" "${NODE2[SEEDS]}" "${NODE2[PORT_OFFSET]}"
-    sleep 10
+    sleep 30
     start_node "cassandra-node3" "${NODE3[IP]}" "${NODE3[SEEDS]}" "${NODE3[PORT_OFFSET]}"
     
     log_info "All nodes started. Waiting for cluster formation..."
-    sleep 30
+    sleep 60
     
     # Show cluster status
     echo ""
@@ -138,7 +140,7 @@ main() {
     echo ""
     echo "Connection strings:"
     echo "  Node 1: cqlsh -h localhost -p 9042"
-    echo "  Node 2: cqlsh -h localhost -p 9043"  
+    echo "  Node 2: cqlsh -h localhost -p 9143"  
     echo "  Node 3: cqlsh -h localhost -p 9044"
     echo ""
     echo "To check status: docker exec cassandra-node1 nodetool status"
