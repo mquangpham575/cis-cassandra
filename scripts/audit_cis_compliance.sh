@@ -179,10 +179,10 @@ audit_section_5() {
     log_header "CIS Section 5: Encryption"
     
     # 5.1 Inter-node encryption (Manual - requires SSL cert setup)
-    check_manual "5.1 - Inter-node encryption enabled on $node (requires manual SSL setup)"
+    check_manual "5.1 - Inter-node encryption (requires manual SSL certificate setup)"
     
     # 5.2 Client encryption (Manual - requires SSL cert setup)
-    check_manual "5.2 - Client encryption enabled on $node (requires manual SSL setup)"
+    check_manual "5.2 - Client encryption (requires manual SSL certificate setup)"
 }
 
 #-------------------------------------------------------------------------------
