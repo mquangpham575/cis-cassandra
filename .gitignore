@@ -1,6 +1,10 @@
-reports/
-.agent/
-*.jks
-*.crt
-# Docker local ignore
-.docker-node-data/
+docs/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.superpowers/
+node_modules/
+dist/
+.pytest_cache/
+*.egg-info/
