@@ -7,9 +7,11 @@ interface Props {
   onClick: () => void
 }
 
-function StatusDot({ ok }: { ok: boolean }) {
+function StatusDot({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span
+      role="img"
+      aria-label={ok ? `${label} reachable` : `${label} unreachable`}
       className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${ok ? 'bg-green-400' : 'bg-red-500'}`}
     />
   )
@@ -62,8 +64,8 @@ export function NodeScoreCard({ report, status, selected, onClick }: Props) {
       {/* Node reachability */}
       {status && (
         <div className="mt-2 flex gap-3 text-xs text-gray-400">
-          <span><StatusDot ok={status.reachable} />SSH</span>
-          <span><StatusDot ok={status.cassandra_running} />Cassandra</span>
+          <span><StatusDot ok={status.reachable} label="SSH" />SSH</span>
+          <span><StatusDot ok={status.cassandra_running} label="Cassandra" />Cassandra</span>
           {status.latency_ms != null && <span>{status.latency_ms}ms</span>}
         </div>
       )}

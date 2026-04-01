@@ -27,10 +27,12 @@ export default function App() {
             </div>
 
             {/* Tab switcher */}
-            <div className="flex rounded-lg bg-gray-800 p-1 gap-1">
+            <div role="tablist" aria-label="Dashboard tabs" className="flex rounded-lg bg-gray-800 p-1 gap-1">
               {TABS.map(t => (
                 <button
                   key={t.id}
+                  role="tab"
+                  aria-selected={tab === t.id}
                   onClick={() => setTab(t.id)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
                     ${tab === t.id

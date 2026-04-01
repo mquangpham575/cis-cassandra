@@ -26,8 +26,7 @@ export function MonitoringPage() {
           src={`${GRAFANA_URL}/d/cis-cassandra-overview?orgId=1&refresh=30s&kiosk`}
           title="Grafana CIS Cassandra Dashboard"
           className="w-full"
-          style={{ height: 'calc(100vh - 240px)', minHeight: '600px' }}
-          frameBorder="0"
+          style={{ height: 'calc(100vh - 240px)', minHeight: '600px', border: 'none' }}
         />
       </div>
 

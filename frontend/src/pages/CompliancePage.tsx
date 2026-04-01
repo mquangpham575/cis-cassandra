@@ -13,12 +13,14 @@ export function CompliancePage() {
   const [nodeStatuses, setNodeStatuses] = useState<NodeStatus[]>([])
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [remediating, setRemediating] = useState<string | null>(null)
+  // C3: Track status fetch failures so the UI can warn the user
+  const [statusError, setStatusError] = useState<boolean>(false)
 
   // Load cluster status on mount
   useEffect(() => {
     api.clusterStatus()
-      .then(setNodeStatuses)
-      .catch(() => { /* silent fail */ })
+      .then(s => { setNodeStatuses(s); setStatusError(false) })
+      .catch(() => setStatusError(true))
   }, [])
 
   const handleRunAudit = () => runAudit('all')
@@ -34,9 +36,10 @@ export function CompliancePage() {
     }
   }
 
+  // I1: Respect explicit null (user deselected) — do NOT auto-fallback to nodes[0]
   const selectedReport: AuditReport | null =
-    state.status === 'success'
-      ? (state.data.nodes.find(n => n.node === selectedNode) ?? state.data.nodes[0] ?? null)
+    state.status === 'success' && selectedNode !== null
+      ? (state.data.nodes.find(n => n.node === selectedNode) ?? null)
       : null
 
   return (
@@ -55,6 +58,13 @@ export function CompliancePage() {
           {state.status === 'loading' ? '⟳ Auditing…' : '▶ Run Audit'}
         </button>
       </div>
+
+      {/* C3: Backend connectivity warning */}
+      {statusError && (
+        <div className="rounded-lg bg-yellow-950 border border-yellow-700 px-4 py-2 text-xs text-yellow-300">
+          ⚠ Could not reach backend for node status — connectivity indicators unavailable
+        </div>
+      )}
 
       {/* Cluster summary banner */}
       {state.status === 'success' && (

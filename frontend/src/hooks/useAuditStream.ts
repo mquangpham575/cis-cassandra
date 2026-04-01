@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { api } from '../api'
 import type { AuditReport } from '../types'
 
@@ -12,8 +12,17 @@ export function useAuditStream() {
   const [state, setState] = useState<StreamState>({ status: 'idle' })
   const esRef = useRef<EventSource | null>(null)
 
+  // C1: Close EventSource on unmount to prevent resource leaks
+  useEffect(() => {
+    return () => {
+      esRef.current?.close()
+      esRef.current = null
+    }
+  }, [])
+
   const startStream = useCallback((nodeIp: string, section = 'all') => {
     esRef.current?.close()
+    esRef.current = null
     setState({ status: 'streaming', node: nodeIp })
 
     const es = new EventSource(api.auditStreamUrl(nodeIp, section))
@@ -24,31 +33,43 @@ export function useAuditStream() {
         const payload = JSON.parse(ev.data as string) as Record<string, unknown>
         if (payload.status === 'done') {
           es.close()
+          esRef.current = null
           return
         }
         if (payload.status === 'error') {
           setState({ status: 'error', message: String(payload.detail ?? 'Unknown error') })
           es.close()
+          esRef.current = null
           return
         }
-        if (payload.checks) {
+        // C2: Validate required fields before casting to AuditReport
+        if (
+          payload.node &&
+          payload.score &&
+          typeof (payload.score as Record<string, unknown>).total === 'number' &&
+          Array.isArray(payload.checks)
+        ) {
           setState({ status: 'done', report: payload as unknown as AuditReport })
           es.close()
+          esRef.current = null
         }
       } catch {
         setState({ status: 'error', message: 'Failed to parse SSE payload' })
         es.close()
+        esRef.current = null
       }
     }
 
     es.onerror = () => {
       setState({ status: 'error', message: 'SSE connection lost' })
       es.close()
+      esRef.current = null
     }
   }, [])
 
   const stop = useCallback(() => {
     esRef.current?.close()
+    esRef.current = null
     setState({ status: 'idle' })
   }, [])
 

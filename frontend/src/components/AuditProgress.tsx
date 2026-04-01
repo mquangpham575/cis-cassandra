@@ -20,7 +20,7 @@ export function AuditProgress({ state }: Props) {
         {state.status === 'streaming' && (
           <>
             <div className="flex items-center gap-2 mb-2">
-              <span className="animate-spin text-brand-400">⟳</span>
+              <span className="animate-spin inline-block text-brand-400">⟳</span>
               <span className="text-sm font-medium">Auditing {state.node}…</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-1">
