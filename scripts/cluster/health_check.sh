@@ -8,7 +8,7 @@ set -euo pipefail
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
 NODES=("192.168.56.11" "192.168.56.12" "192.168.56.13")
-SSH_OPTS="-i ${SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes"
+SSH_OPTS=(-i "${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes)
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
@@ -25,6 +25,7 @@ info() { echo -e "${CYAN}[INFO]${NC}  $*"; }
 # ── Main ──────────────────────────────────────────────────────────────────────
 OVERALL=0
 UNREACHABLE=0
+SERVICE_DOWN=0
 NOT_UN=0
 
 echo ""
@@ -38,7 +39,7 @@ for NODE in "${NODES[@]}"; do
   info "Checking node: ${NODE}"
 
   # 1. Can we SSH in?
-  if ! ssh ${SSH_OPTS} "${SSH_USER}@${NODE}" "echo ok" &>/dev/null; then
+  if ! ssh "${SSH_OPTS[@]}" "${SSH_USER}@${NODE}" "echo ok" &>/dev/null; then
     fail "  ${NODE} — UNREACHABLE (SSH failed)"
     UNREACHABLE=$(( UNREACHABLE + 1 ))
     OVERALL=1
@@ -46,18 +47,18 @@ for NODE in "${NODES[@]}"; do
   fi
 
   # 2. Is Cassandra service running?
-  SVC_STATE=$(ssh ${SSH_OPTS} "${SSH_USER}@${NODE}" \
+  SVC_STATE=$(ssh "${SSH_OPTS[@]}" "${SSH_USER}@${NODE}" \
     "sudo systemctl is-active cassandra 2>/dev/null || echo inactive")
   if [ "${SVC_STATE}" != "active" ]; then
     fail "  ${NODE} — Cassandra service is ${SVC_STATE}"
-    NOT_UN=$(( NOT_UN + 1 ))
+    SERVICE_DOWN=$(( SERVICE_DOWN + 1 ))
     OVERALL=1
     continue
   fi
 
   # 3. What is this node's status in the ring?
-  NODE_STATUS=$(ssh ${SSH_OPTS} "${SSH_USER}@${NODE}" \
-    "nodetool status 2>/dev/null | grep '${NODE}' | awk '{print \$1}'" 2>/dev/null || echo "UNKNOWN")
+  NODE_STATUS=$(ssh "${SSH_OPTS[@]}" "${SSH_USER}@${NODE}" \
+    "nodetool status 2>/dev/null | awk '/^(U|D)(N|L|J|M).*${NODE}/{print \$1}'" || echo "UNKNOWN")
 
   if [ "${NODE_STATUS}" = "UN" ]; then
     ok "  ${NODE} — UN (Up/Normal)"
@@ -72,13 +73,16 @@ done
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo "════════════════════════════════════════════════════════════"
-HEALTHY=$(( ${#NODES[@]} - UNREACHABLE - NOT_UN ))
+HEALTHY=$(( ${#NODES[@]} - UNREACHABLE - SERVICE_DOWN - NOT_UN ))
 
 if [ "${OVERALL}" -eq 0 ]; then
-  ok "Cluster status: ALL NODES HEALTHY (UN UN UN)"
+  ok "Cluster status: ALL NODES HEALTHY (${#NODES[@]}/${#NODES[@]} nodes UN)"
 else
   if [ "${UNREACHABLE}" -gt 0 ]; then
     fail "${UNREACHABLE} node(s) UNREACHABLE"
+  fi
+  if [ "${SERVICE_DOWN}" -gt 0 ]; then
+    fail "${SERVICE_DOWN} node(s) have Cassandra service NOT RUNNING"
   fi
   if [ "${NOT_UN}" -gt 0 ]; then
     fail "${NOT_UN} node(s) NOT in UN state"
