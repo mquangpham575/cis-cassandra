@@ -1,118 +1,242 @@
 # CHI TIẾT PHÂN CÔNG NHIỆM VỤ DỰ ÁN (TIẾN ĐỘ 4 TUẦN)
+> **Môi trường triển khai:** Microsoft Azure (3 VM Ubuntu 22.04 trên Azure VNet)
 
-## 1. Thành viên 1 – Infrastructure & DevOps (Nền tảng hạ tầng)
+---
 
-**Vai trò:** Chịu trách nhiệm thiết lập và quản lý toàn bộ hạ tầng kỹ thuật. Đây là nhiệm vụ ưu tiên (Unblock-first) nhằm đảm bảo môi trường thực thi cho toàn bộ đội ngũ phát triển.
+## 1. Thành viên 1 – Infrastructure & DevOps (Nền tảng Azure)
 
-### Thiết lập cụm cơ sở dữ liệu Cassandra
+**Vai trò:** Xây dựng toàn bộ hạ tầng Azure bằng Terraform, đảm bảo môi trường sẵn sàng cho nhóm trong tuần 1.
 
-- Khởi tạo 03 máy ảo (VM) Ubuntu 22.04 với cấu hình tối thiểu 4GB RAM và 2 vCPU.
-- Cấu hình địa chỉ IP tĩnh trong dải nội bộ từ 192.168.56.11 đến 192.168.56.13.
-- Cài đặt môi trường thực thi cơ bản bao gồm OpenJDK 8, Python 3.10 và Apache Cassandra 4.0.x.
-- Cấu hình tập tin cassandra.yaml với các thông số: Cluster Name, Seed Provider, Listen Address và RPC Address.
-- Quản lý và thông các cổng dịch vụ trên Firewall: 7000 (Gossip), 9042 (CQL), 7199 (JMX) và 22 (SSH).
+### Thiết lập cụm Cassandra trên Azure
 
-### Triển khai hạ tầng dưới dạng mã (Infrastructure as Code - IaC)
+- Tạo 3 Azure VM Ubuntu 22.04 (Standard_B2s: 2 vCPU, 4GB RAM) trong cùng một Azure VNet.
+- Cấu hình IP tĩnh nội bộ: `10.0.1.11` (seed), `10.0.1.12`, `10.0.1.13`.
+- Cài đặt OpenJDK 8, Python 3.10, Apache Cassandra 4.0.x trên mỗi VM.
+- Cấu hình `cassandra.yaml`: Cluster Name, Seed Provider, Listen Address, RPC Address.
 
-- Xây dựng bộ kịch bản Terraform để tự động hóa quy trình khởi tạo và cấu hình VM đồng nhất.
-- Sử dụng Terraform Cloud hoặc S3 làm Backend để quản lý và chia sẻ State giữa các thành viên.
+### Terraform IaC (azurerm provider)
 
-### Bảo mật và Kết nối từ xa
+- Toàn bộ hạ tầng được mô tả bằng Terraform: Resource Group, VNet, Subnet, NSG, VM, Public IP.
+- Remote state lưu trên **Azure Blob Storage** (miễn phí với Azure for Students).
+- Chạy `terraform apply` → có ngay 3 VM với Cassandra đã cài.
 
-- Triển khai giải pháp WireGuard VPN trên Gateway để thiết lập kênh truy cập bảo mật cho đội ngũ.
-- Sử dụng Infisical để lưu trữ và quản lý tập trung các thông tin nhạy cảm (SSH keys, mật khẩu hệ thống).
-- Cài đặt GitHub Actions Self-hosted Runner trên Gateway VPN để thực thi quy trình CI/CD trong mạng nội bộ.
+```
+terraform/
+├── main.tf          # Resource Group, VNet, Subnet
+├── vms.tf           # 3 Azure Linux VM
+├── nsg.tf           # Network Security Group rules
+├── outputs.tf       # Public IPs, SSH commands
+└── variables.tf     # vm_size, location, ssh_key_path
+```
 
-### Hệ thống giám sát (Observability)
+### Bảo mật hạ tầng Azure
 
-- Cấu hình Prometheus để thu thập JMX metrics từ các node Cassandra.
-- Thiết lập Grafana Dashboard hiển thị trực quan các chỉ số vận hành trọng yếu: Heap memory, Latency, Disk usage và trạng thái hoạt động của cụm node.
+- **Azure NSG** thay thế WireGuard VPN: chỉ cho phép port 22 (SSH) từ IP của nhóm, port 9042/7000/7199 chỉ trong VNet nội bộ.
+- **Azure Key Vault** thay thế Infisical: lưu SSH private key, Cassandra credentials, Grafana password.
+- **GitHub Actions OIDC** (Workload Identity Federation): CI/CD xác thực vào Azure không cần lưu secret vào GitHub.
+
+### Observability
+
+- Prometheus scrape JMX Exporter từ 3 nodes (port 9404).
+- Grafana Dashboard: Heap memory, Read/Write latency, Disk usage, Node status.
+- Chạy Prometheus + Grafana trên VM1 hoặc Azure Container Instance.
+
+### Timeline
+
+| Tuần | Mục tiêu | Deliverable |
+|------|-----------|-------------|
+| 1 | VM + Cassandra | 3 VM lên, cluster chạy, `nodetool status` xanh cả 3 node |
+| 2 | Terraform + NSG | `terraform apply` tái tạo môi trường, NSG đúng rules |
+| 3 | Key Vault + OIDC | Secret quản lý bằng Key Vault, CI/CD dùng OIDC auth |
+| 4 | Monitoring + support | Grafana live metrics, hỗ trợ debug cho cả nhóm |
 
 ---
 
 ## 2. Thành viên 2 – CIS Scripting & Hardening (Logic bảo mật)
 
-**Vai trò:** Phát triển logic kiểm tra và khắc phục lỗ hổng bảo mật theo tiêu chuẩn quốc tế. Sản phẩm của nhiệm vụ này là nguồn dữ liệu đầu vào cốt lõi cho Backend và Dashboard.
+**Vai trò:** Xây dựng toàn bộ lớp automation script — 20 CIS checks + ~10 OS custom checks. Đây là nguồn dữ liệu cốt lõi cho Backend và Dashboard.
 
-### Xây dựng thư viện lõi (Foundation)
+### Thư viện lõi (common.sh)
 
-- Hoàn thiện tập tin common.sh chứa các hàm tiện ích: Nhật ký hệ thống (Logging), định dạng kết quả chuẩn JSON, kiểm tra đặc quyền root và thực thi lệnh từ xa.
+Phải hoàn thành tuần 1 trước khi làm bất kỳ check nào:
 
-### Triển khai danh mục Security Checks (30+ Checks)
+| Hàm | Chức năng |
+|-----|-----------|
+| `log_info/warn/fail` | Log màu (green/yellow/red) kèm timestamp |
+| `json_result` | Xuất JSON chuẩn cho mỗi check |
+| `check_root` | Kiểm tra quyền root |
+| `run_remote <ip> <cmd>` | SSH vào node khác và chạy lệnh |
+| `cassandra_yaml_get` | Đọc giá trị từ cassandra.yaml |
+| `cqlsh_query` | Chạy CQL query, handle lỗi connection |
 
-- Thực thi đầy đủ 20 hạng mục kiểm tra theo tiêu chuẩn CIS Apache Cassandra 4.0 Benchmark v1.3.0.
-- Bổ sung các hạng mục kiểm tra tùy chỉnh cho lớp hệ điều hành (OS-level hardening) như quyền hạn tập tin và cấu hình bảo mật SSH.
-- Áp dụng cấu trúc bắt buộc cho mỗi hạng mục kiểm tra bao gồm 03 giai đoạn: audit (phát hiện), harden (khắc phục tự động), và verify (xác nhận lại).
+### 20 CIS Checks (mỗi check gồm 3 hàm: audit, harden, verify)
 
-### Tích hợp các lớp bảo mật thực tế
+| ID | Tên check | Loại | Tuần |
+|----|-----------|------|------|
+| 1.1 | Separate user/group for Cassandra | Manual | 1 |
+| 1.2 | Latest Java version | Automated | 1 |
+| 1.3 | Latest Python version | Automated | 1 |
+| 1.4 | Latest Cassandra version | Automated | 1 |
+| 1.5 | Run as non-root user | Automated | 1 |
+| 1.6 | Clock synchronized (NTP) | Manual | 1 |
+| 2.1 | Authentication enabled (PasswordAuthenticator) | Automated | 2 |
+| 2.2 | Authorization enabled (CassandraAuthorizer) | Automated | 2 |
+| 3.1 | cassandra/superuser roles are separate | Automated | 2 |
+| 3.2 | Default password changed | Automated | 2 |
+| 3.3 | No unnecessary roles/excessive privileges | Manual | 2 |
+| 3.4 | Non-privileged service account | Automated | 2 |
+| 3.5 | Listen only on authorized interfaces | Manual | 2 |
+| 3.6 | Data Center Authorization activated | Manual | 3 |
+| 3.7 | Review User-Defined Roles | Manual | 3 |
+| 3.8 | Review Superuser/Admin Roles | Manual | 3 |
+| 4.1 | Logging is enabled | Automated | 3 |
+| 4.2 | Auditing is enabled | Manual | 3 |
+| 5.1 | Inter-node encryption (TLS) | Automated | 3 |
+| 5.2 | Client encryption (TLS) | Automated | 3 |
 
-- **Xác thực và Phân quyền**: Kích hoạt cơ chế PasswordAuthenticator và CassandraAuthorizer trong cấu hình hệ thống.
-- **Nhật ký bảo mật**: Kích hoạt Audit Logging để lưu vết toàn bộ hoạt động truy cập và thao tác dữ liệu.
-- **Mã hóa dữ liệu**: Cấu hình mã hóa TLS cho luồng dữ liệu nội bộ và kết nối từ phía ứng dụng khách (Client).
-- **Kiểm tra thủ công**: Trích xuất dữ liệu thực tế cho các hạng mục kiểm tra Manual để phục vụ công tác thẩm định.
+Ngoài ra bổ sung ~10 OS-level custom checks: file permissions, sysctl hardening, SSH config security.
 
-### Phát triển công cụ điều phối (cis-tool.sh)
+### JSON Schema (thống nhất với Member 3 — tuần 1)
 
-- Xây dựng giao diện dòng lệnh hỗ trợ chạy audit theo từng phân đoạn hoặc thực thi song song trên toàn bộ các node.
-- Đảm bảo cấu trúc dữ liệu đầu ra tuân thủ định dạng JSON Schema đã thống nhất.
-- Quản lý mã thoát (Exit code) chính xác (0 cho Pass, 1 cho Fail) để tích hợp vào hàng rào bảo mật CI/CD.
+```json
+{
+  "check_id": "2.1",
+  "title": "Authentication enabled",
+  "status": "FAIL",
+  "severity": "CRITICAL",
+  "current_value": "AllowAllAuthenticator",
+  "expected_value": "PasswordAuthenticator",
+  "remediation": "Set authenticator: PasswordAuthenticator",
+  "section": "Authentication and Authorization",
+  "node": "10.0.1.11",
+  "timestamp": "2026-04-01T10:00:00Z"
+}
+```
+
+**Lưu ý quan trọng:** `exit code 0` = tất cả PASS, `exit code 1` = có FAIL. CI/CD dùng exit code này để block merge.
+
+### cis-tool.sh modes
+
+| Lệnh | Chức năng |
+|------|-----------|
+| `--audit [--section N]` | Chạy audit, xuất JSON |
+| `--harden [--section N]` | Áp dụng hardening |
+| `--verify` | Verify sau harden |
+| `--all-nodes` | Chạy song song trên cả 3 VM |
+| `--output report.json` | Tổng hợp kết quả |
 
 ---
 
-## 3. Thành viên 3 – Backend API & System Integration (Tích hợp hệ thống)
+## 3. Thành viên 3 – Backend API & System Integration
 
-**Vai trò:** Xây dựng hệ thống API trung gian để điều phối các kịch bản bảo mật và cung cấp dữ liệu xử lý cho giao diện Dashboard.
+**Vai trò:** FastAPI backend điều phối script bash qua SSH, cung cấp dữ liệu cho Dashboard.
 
-### Khởi tạo dự án và Mô hình hóa dữ liệu
+### Stack
 
-- Thiết lập dự án FastAPI và định nghĩa các Pydantic models nhằm chuẩn hóa dữ liệu audit/harden.
-- Thống nhất JSON Schema với bộ phận Script ngay từ giai đoạn đầu để đảm bảo tính tương thích dữ liệu.
+- **FastAPI** + **asyncssh** + **Pydantic v2** + **pytest**
+- SSH key auth vào 3 Azure VM (key lưu trong Azure Key Vault, inject qua env)
 
-### Xây dựng các API Endpoints
+### API Endpoints
 
-- GET /nodes: Truy xuất danh sách và trạng thái vận hành của các node trong cụm.
-- POST /audit/{ip}: Kích hoạt kịch bản kiểm tra bảo mật trên VM thông qua giao thức SSH.
-- POST /remediate/{ip}: Thực thi quy trình khắc phục lỗi tự động trên node mục tiêu.
-- GET /report: Tổng hợp và tính toán điểm số tuân thủ bảo mật (Compliance Score) của toàn hệ thống.
+| Method | Endpoint | Chức năng |
+|--------|----------|-----------|
+| GET | `/api/cluster/status` | Status 3 nodes (reachable, Cassandra running, latency) |
+| GET | `/api/audit/cluster` | Audit toàn cluster, trả JSON |
+| GET | `/api/audit/node/{ip}` | Audit 1 node |
+| GET | `/api/audit/stream/{ip}` | **SSE stream** — live output khi audit chạy |
+| POST | `/api/harden/node/{ip}` | Trigger harden script |
+| GET | `/health` | Health check endpoint |
 
-### Xử lý dữ liệu thời gian thực và SSH
+### SSE Streaming (Server-Sent Events)
 
-- Sử dụng thư viện AsyncSSH để quản lý các kết nối bất đồng bộ tới hệ thống máy ảo.
-- Triển khai giao thức WebSocket (/ws/audit/) để truyền tải trực tiếp luồng nhật ký thực thi (Stream) từ VM về trình duyệt người dùng.
+SSE là lựa chọn tốt hơn WebSocket cho trường hợp này (server → client one-way stream). Backend stream từng dòng output từ cis-tool.sh về frontend real-time qua SSE.
 
-### Đảm bảo chất lượng và Giám sát
+### Pydantic Models (khớp với JSON schema của Member 2)
 
-- Xây dựng Proxy endpoint để trích xuất dữ liệu metrics từ hệ thống Prometheus cho Frontend.
-- Thực hiện Unit tests cho các router và dịch vụ xử lý bằng pytest.
-- Cung cấp tài liệu API tự động thông qua giao diện Swagger UI tại đường dẫn /docs.
+```python
+class CheckResult(BaseModel):
+    check_id: str
+    title: str
+    status: Literal['PASS', 'FAIL', 'MANUAL', 'ERROR']
+    severity: Literal['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+    current_value: str
+    expected_value: str
+    remediation: str
+    section: str
+    node: str
+    timestamp: datetime
+```
+
+### Timeline
+
+| Tuần | Mục tiêu | Deliverable |
+|------|-----------|-------------|
+| 1 | Scaffold + schema | FastAPI project, Pydantic models, thống nhất JSON schema với Member 2 |
+| 2 | Core API | `/cluster/status`, `/audit/*`, `/harden/*` hoàn chỉnh |
+| 3 | SSE stream | `/audit/stream/{ip}` stream live, pytest 36 tests pass |
+| 4 | Integration | Test đầu cuối với Member 2 và 4, fix edge cases |
 
 ---
 
-## 4. Thành viên 4 – Frontend Dashboard & CI/CD Pipeline (Giao diện và Quy trình)
+## 4. Thành viên 4 – Frontend Dashboard & CI/CD Pipeline
 
-**Vai trò:** Phát triển giao diện quản trị trực quan và thiết lập quy trình tự động hóa bảo mật (Security Gate) trong chu trình phát triển.
+**Vai trò:** Dashboard 4 trang + CI/CD security gate chặn merge khi có lỗi CRITICAL.
 
-### Phát triển giao diện người dùng (SPA)
+### Frontend: 4 trang (React 18 + Vite + Tailwind)
 
-- Khởi tạo ứng dụng bằng Vite và React 18, sử dụng Tailwind CSS và bộ thành phần UI chuyên nghiệp từ shadcn/ui.
-- **Trang Dashboard**: Hiển thị tổng quan trạng thái hạ tầng và biểu đồ điểm số bảo mật (Score Gauge) thời gian thực.
-- **Trang Compliance**: Cung cấp bảng chi tiết kết quả kiểm tra với tính năng lọc theo trạng thái và mức độ nghiêm trọng.
-- **Trang Audit Live**: Giao diện Terminal mô phỏng hiển thị nhật ký thực thi trực tiếp qua WebSocket.
-- **Trang Monitoring**: Tích hợp các biểu đồ giám sát kỹ thuật được nhúng từ Grafana/Prometheus.
+| Trang | Nội dung | Tính năng |
+|-------|----------|-----------|
+| **Dashboard** | Score gauge 3 nodes, cluster health overview | Auto-refresh 30s, nút Run Audit All |
+| **Compliance** | Bảng 20+ checks, filter theo status/section | Click xem evidence + Auto-Remediate |
+| **Audit Live** | Terminal stream real-time khi audit chạy | Node selector, Start/Stop, auto-scroll |
+| **Monitoring** | Grafana iframe + quick links | Link đến Prometheus, API docs |
 
-### Quản lý trạng thái và Kết nối dữ liệu
+**Audit Live page** là điểm ấn tượng nhất trong demo: thấy từng dòng output SSH chạy trong trình duyệt real-time.
 
-- Xây dựng API Client bằng TypeScript sử dụng Axios và TanStack Query để quản lý đồng bộ dữ liệu.
-- Phát triển Custom hook để xử lý luồng dữ liệu WebSocket và cơ chế tự động kết nối lại khi mất tín hiệu.
+### CI/CD Pipeline: 5 jobs
 
-### Thiết lập quy trình CI/CD Security
+```
+lint-bash ──────────────────────────────────────────┐
+test-backend ───────────────────────────────────────┤──► security-gate (CRITICAL block)
+test-frontend (tsc + vitest + build) ───────────────┤
+trivy-scan (CVE + filesystem) ──────────────────────┘
+```
 
-- Cấu hình GitHub Actions Workflow tự động kích hoạt khi phát sinh Pull Request (PR) vào nhánh chính.
-- **Security Gate**: Xây dựng bước kiểm tra kết quả audit từ tập tin JSON; thực hiện chặn việc hợp nhất mã nguồn (Block merge) nếu phát hiện vi phạm bảo mật mức độ CRITICAL.
-- Thiết lập các quy tắc bảo vệ nhánh (Branch Protection Rules) yêu cầu các bước kiểm tra tự động phải thành công.
+### Security Gate (điểm DevSecOps thực sự)
 
-### Tích hợp công cụ DevSecOps bổ sung
+```bash
+# Block merge nếu có CIS check CRITICAL bị FAIL
+CRITICAL=$(jq '[.checks[] | select(.status=="FAIL" and .severity=="CRITICAL")] | length' audit-fixture.json)
+if [ "$CRITICAL" -gt 0 ]; then
+  echo "❌ BLOCKED: $CRITICAL critical CIS violations"
+  exit 1
+fi
+```
 
-- Triển khai Trivy để quét lỗ hổng bảo mật trong hệ thống tập tin và Docker image.
-- Tích hợp Bandit để thực hiện phân tích mã nguồn tĩnh (SAST) cho mã nguồn Backend.
-- Cấu hình ESLint Security Plugin nhằm kiểm soát các rủi ro bảo mật trong mã nguồn Frontend.
+**Demo kịch bản:** Commit cấu hình Cassandra thiếu authentication → pipeline đỏ → merge bị block → fix → pipeline xanh. Đây là DevSecOps security gate thực sự.
+
+### Trivy (CVE Scanning)
+
+- Quét toàn bộ filesystem repo tìm vulnerability CRITICAL/HIGH
+- Quét Python dependencies (`requirements.txt`) tìm CVE đã biết
+- Kết quả upload lên GitHub Security tab (SARIF format)
+
+### ESLint Security Plugin
+
+- Phát hiện XSS, injection risk trong React code
+- Chạy trong `test-frontend` job
+
+### Branch Protection Rules (setup trên GitHub)
+
+- Require `security-gate` job pass trước khi merge
+- Dismiss stale approvals sau khi push mới
+- Require linear history (squash merge)
+
+### Timeline
+
+| Tuần | Mục tiêu | Deliverable |
+|------|-----------|-------------|
+| 1 | Scaffold | Vite+React+Tailwind, TypeScript types, CI skeleton |
+| 2 | Dashboard + Compliance | 2 trang chính kết nối API thật |
+| 3 | Audit Live + CI gate | Terminal stream page, security gate block CRITICAL, Trivy |
+| 4 | Polish + demo | Score animation, demo script chuẩn, responsive |

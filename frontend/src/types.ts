@@ -1,6 +1,6 @@
 export type CheckStatus = 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
 export type CheckType = 'automated' | 'manual'
-export type Tab = 'compliance' | 'monitoring'
+export type Tab = 'dashboard' | 'compliance' | 'audit-live' | 'monitoring'
 
 export interface CheckResult {
   id: string
@@ -55,4 +55,10 @@ export interface HardenResult {
   stdout: string
   stderr: string
   success: boolean
+}
+
+export interface StreamLogLine {
+  ts: string       // ISO timestamp
+  level: 'info' | 'pass' | 'fail' | 'warn'
+  message: string
 }

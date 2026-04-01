@@ -1,15 +1,19 @@
 import { useState } from 'react'
+import { DashboardPage } from './pages/DashboardPage'
 import { CompliancePage } from './pages/CompliancePage'
+import { AuditLivePage } from './pages/AuditLivePage'
 import { MonitoringPage } from './pages/MonitoringPage'
 import type { Tab } from './types'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'compliance', label: 'Compliance Audit', icon: '🔒' },
+  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+  { id: 'compliance', label: 'Compliance', icon: '🔒' },
+  { id: 'audit-live', label: 'Audit Live', icon: '⚡' },
   { id: 'monitoring', label: 'Monitoring', icon: '📊' },
 ]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('compliance')
+  const [tab, setTab] = useState<Tab>('dashboard')
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -55,7 +59,9 @@ export default function App() {
 
       {/* Page content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {tab === 'dashboard' && <DashboardPage />}
         {tab === 'compliance' && <CompliancePage />}
+        {tab === 'audit-live' && <AuditLivePage />}
         {tab === 'monitoring' && <MonitoringPage />}
       </main>
     </div>

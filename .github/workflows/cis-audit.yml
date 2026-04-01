@@ -111,7 +111,7 @@ jobs:
           path: frontend/dist/
 
   # ─────────────────────────────────────────────────────────────
-  # Job 4 — Static security analysis (runs after all other jobs)
+  # Job 4 — SAST: Bandit (Python) + secret scan
   # ─────────────────────────────────────────────────────────────
   security-scan:
     runs-on: ubuntu-latest
@@ -124,10 +124,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install bandit (Python SAST)
+      - name: Install bandit
         run: pip install bandit[toml]
 
-      - name: Bandit scan — backend
+      - name: Bandit SAST — backend
         run: |
           bandit -r backend/ \
             --exclude backend/tests/ \
@@ -135,9 +135,97 @@ jobs:
             --confidence-level medium \
             -f txt || true
 
-      - name: Scan for hardcoded secrets (rudimentary)
+      - name: Scan for hardcoded secrets
         run: |
-          echo "=== Checking for hardcoded passwords in scripts ==="
-          grep -rn "password\s*=\s*['\"][^$]" scripts/ || echo "No obvious hardcoded passwords found"
-          echo "=== Checking for hardcoded passwords in backend ==="
-          grep -rn "password\s*=\s*['\"]" backend/ --include="*.py" || echo "No obvious hardcoded passwords found"
+          echo "=== Checking scripts for hardcoded passwords ==="
+          grep -rn "password\s*=\s*['\"][^$]" scripts/ || echo "✅ No obvious hardcoded passwords in scripts"
+          echo "=== Checking backend for hardcoded passwords ==="
+          grep -rn "password\s*=\s*['\"]" backend/ --include="*.py" || echo "✅ No obvious hardcoded passwords in backend"
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 5 — Trivy: CVE scan filesystem + Python deps
+  # ─────────────────────────────────────────────────────────────
+  trivy-scan:
+    runs-on: ubuntu-latest
+    needs: [lint-bash, test-backend, test-frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          severity: "CRITICAL,HIGH"
+          format: "table"
+          exit-code: "0"
+          ignore-unfixed: true
+
+      - name: Run Trivy SARIF (upload to GitHub Security tab)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          severity: "CRITICAL,HIGH"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 6 — Security Gate: block merge on CRITICAL CIS violations
+  # This is the DevSecOps core: CI fails if any CRITICAL check is FAIL
+  # ─────────────────────────────────────────────────────────────
+  security-gate:
+    runs-on: ubuntu-latest
+    needs: [security-scan, trivy-scan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Check audit fixture for CRITICAL violations
+        run: |
+          FIXTURE="scripts/tests/audit-fixture.json"
+          if [ ! -f "$FIXTURE" ]; then
+            echo "⚠ No audit fixture found — skipping gate check"
+            exit 0
+          fi
+
+          echo "=== CIS Security Gate ==="
+          echo "Audit fixture: $FIXTURE"
+          echo ""
+
+          # Count CRITICAL failures
+          CRITICAL=$(jq '[.checks[] | select(.status=="FAIL" and .severity=="CRITICAL")] | length' "$FIXTURE")
+          HIGH=$(jq '[.checks[] | select(.status=="FAIL" and .severity=="HIGH")] | length' "$FIXTURE")
+          TOTAL_FAIL=$(jq '[.checks[] | select(.status=="FAIL")] | length' "$FIXTURE")
+          COMPLIANCE=$(jq '.score.compliance_pct' "$FIXTURE")
+
+          echo "📊 Compliance Score : ${COMPLIANCE}%"
+          echo "❌ Total FAIL       : ${TOTAL_FAIL}"
+          echo "🔴 CRITICAL FAIL    : ${CRITICAL}"
+          echo "🟠 HIGH FAIL        : ${HIGH}"
+          echo ""
+
+          # Print CRITICAL failures
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "=== CRITICAL Violations (blocking merge) ==="
+            jq -r '.checks[] | select(.status=="FAIL" and .severity=="CRITICAL") |
+              "  [\(.check_id)] \(.title)\n    Current : \(.current_value)\n    Expected: \(.expected_value)\n    Fix     : \(.remediation)\n"' "$FIXTURE"
+          fi
+
+          # Gate: fail if any CRITICAL
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "🚫 SECURITY GATE BLOCKED: $CRITICAL critical CIS violation(s) detected."
+            echo "   Run 'sudo bash scripts/cis-tool.sh --harden' on affected nodes to remediate."
+            exit 1
+          fi
+
+          echo "✅ Security gate passed — no CRITICAL violations."

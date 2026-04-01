@@ -20,7 +20,11 @@ export function useAuditStream() {
     }
   }, [])
 
-  const startStream = useCallback((nodeIp: string, section = 'all') => {
+  const startStream = useCallback((
+    nodeIp: string,
+    section = 'all',
+    onLine?: (raw: string) => void,   // optional per-line callback for live terminal
+  ) => {
     esRef.current?.close()
     esRef.current = null
     setState({ status: 'streaming', node: nodeIp })
@@ -29,6 +33,9 @@ export function useAuditStream() {
     esRef.current = es
 
     es.onmessage = (ev: MessageEvent) => {
+      // Emit raw text line to caller before parsing (powers Audit Live terminal)
+      if (onLine && typeof ev.data === 'string') onLine(ev.data)
+
       try {
         const payload = JSON.parse(ev.data as string) as Record<string, unknown>
         if (payload.status === 'done') {
