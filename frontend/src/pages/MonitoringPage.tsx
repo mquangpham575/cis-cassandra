@@ -1,4 +1,4 @@
-const GRAFANA_URL = import.meta.env.VITE_GRAFANA_URL ?? 'http://192.168.56.11:3001'
+const GRAFANA_URL = import.meta.env.VITE_GRAFANA_URL ?? 'http://10.0.1.11:3001'
 
 export function MonitoringPage() {
   return (
@@ -34,8 +34,8 @@ export function MonitoringPage() {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Grafana', url: GRAFANA_URL, icon: '📊' },
-          { label: 'Prometheus', url: 'http://192.168.56.11:9090', icon: '🔥' },
-          { label: 'API Docs', url: 'http://192.168.56.11:8000/docs', icon: '📖' },
+          { label: 'Prometheus', url: 'http://10.0.1.11:9090', icon: '🔥' },
+          { label: 'API Docs', url: 'http://10.0.1.11:8000/docs', icon: '📖' },
         ].map(link => (
           <a
             key={link.label}
