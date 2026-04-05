@@ -4,7 +4,7 @@ import { NodeScoreCard } from '../components/NodeScoreCard'
 import type { AuditReport, NodeStatus } from '../types'
 
 const makeReport = (pct: number): AuditReport => ({
-  node: '192.168.56.11',
+  node: '10.0.1.11',
   timestamp: '2026-04-01T10:00:00Z',
   score: {
     total: 10,
@@ -20,7 +20,7 @@ const makeReport = (pct: number): AuditReport => ({
 })
 
 const nodeStatus: NodeStatus = {
-  ip: '192.168.56.11',
+  ip: '10.0.1.11',
   reachable: true,
   cassandra_running: true,
   latency_ms: 4.2,
@@ -29,7 +29,7 @@ const nodeStatus: NodeStatus = {
 describe('NodeScoreCard', () => {
   it('renders node IP', () => {
     render(<NodeScoreCard report={makeReport(80)} selected={false} onClick={vi.fn()} />)
-    expect(screen.getByText('192.168.56.11')).toBeInTheDocument()
+    expect(screen.getByText('10.0.1.11')).toBeInTheDocument()
   })
 
   it('renders compliance percentage', () => {
