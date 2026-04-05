@@ -28,7 +28,7 @@ locals {
       - apt-get update -qq
       - apt-get install -y cassandra
       # ---- Ensure Java 11 is the active JDK ----
-      - update-alternatives --set java /usr/lib/jvm/java-11-openjdk-amd64/bin/java
+      - update-alternatives --set java /usr/lib/jvm/java-11-openjdk-arm64/bin/java
       # ---- Stop Cassandra until Ansible/scripts configure the cluster ----
       - systemctl stop cassandra
       - systemctl disable cassandra
@@ -127,7 +127,7 @@ resource "azurerm_linux_virtual_machine" "node" {
   source_image_reference {
     publisher = "Canonical"
     offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
+    sku       = "22_04-lts-arm64"
     version   = "latest"
   }
 

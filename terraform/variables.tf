@@ -21,15 +21,15 @@ variable "location" {
 }
 
 variable "vm_size" {
-  description = "Azure VM SKU — Standard_B2s gives 2 vCPU / 4 GB RAM, sufficient for a dev Cassandra cluster"
+  description = "Azure VM SKU"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ps_v2"
 }
 
 variable "ssh_public_key_path" {
   description = "Absolute path to the SSH public key file (.pub) used for VM authentication. Password auth is disabled."
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = "~/.ssh/cis_key.pub"
 }
 
 variable "allowed_ssh_cidr" {
@@ -39,7 +39,7 @@ variable "allowed_ssh_cidr" {
     Tighten this to your group's static egress IP in production, e.g. "203.0.113.0/32".
   EOT
   type    = string
-  default = "0.0.0.0/0"
+  default = "14.187.93.155/32"
 }
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ terraform {
 }
 
 provider "azurerm" {
+  skip_provider_registration = true
   features {}
   # Credentials are picked up automatically from:
   #   1. Azure CLI  (`az login`)
