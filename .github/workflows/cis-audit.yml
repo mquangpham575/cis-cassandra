@@ -267,6 +267,24 @@ jobs:
       - name: Verify Azure connection
         run: az account show --output table
 
+      - name: Open NSG for GitHub Runner
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "Runner IP: $RUNNER_IP"
+          az network nsg rule create \
+            --resource-group rg-cis-cassandra \
+            --nsg-name cis-cassandra-nsg \
+            --name AllowGitHubRunnerSSH \
+            --priority 105 \
+            --direction Inbound \
+            --access Allow \
+            --protocol Tcp \
+            --source-address-prefixes "$RUNNER_IP" \
+            --source-port-ranges '*' \
+            --destination-address-prefixes '*' \
+            --destination-port-ranges 22 \
+            --description "Temporary access for GitHub Actions Runner"
+
       - name: Sync CIS scripts to cluster nodes
         env:
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -274,10 +292,28 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          for NODE in 10.0.1.11 10.0.1.12 10.0.1.13; do
-            ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
-              cassandra@$NODE "mkdir -p ~/cis-tool" || true
+          
+          # Fetch public IPs dynamically from Azure
+          PUBLIC_IPS=$(az network public-ip list --resource-group rg-cis-cassandra --query "[].ipAddress" -o tsv)
+          
+          if [ -z "$PUBLIC_IPS" ]; then
+            echo "❌ No public IPs found for resource group rg-cis-cassandra"
+            exit 1
+          fi
+          
+          for IP in $PUBLIC_IPS; do
+            echo "🚀 Syncing scripts to node at $IP..."
+            ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
+              cassandra@$IP "mkdir -p ~/cis-tool" || true
             scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r \
-              scripts/ cassandra@$NODE:~/cis-tool/ || true
+              scripts/ cassandra@$IP:~/cis-tool/ || true
           done
           rm -f /tmp/deploy_key
+
+      - name: Cleanup NSG Rule
+        if: always()
+        run: |
+          az network nsg rule delete \
+            --resource-group rg-cis-cassandra \
+            --nsg-name cis-cassandra-nsg \
+            --name AllowGitHubRunnerSSH
