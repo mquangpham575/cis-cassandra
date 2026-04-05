@@ -2,12 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import App from '../App'
 
-// Mock the page components — we test them separately
+// Mock the page components
+vi.mock('../pages/DashboardPage', () => ({
+  DashboardPage: () => <div data-testid="dashboard-page">Dashboard Content</div>,
+}))
 vi.mock('../pages/CompliancePage', () => ({
-  CompliancePage: () => <div data-testid="compliance-page">Compliance</div>,
+  CompliancePage: () => <div data-testid="compliance-page">Compliance Content</div>,
 }))
 vi.mock('../pages/MonitoringPage', () => ({
-  MonitoringPage: () => <div data-testid="monitoring-page">Monitoring</div>,
+  MonitoringPage: () => <div data-testid="monitoring-page">Monitoring Content</div>,
+}))
+vi.mock('../pages/AuditLivePage', () => ({
+  AuditLivePage: () => <div data-testid="audit-live-page">Audit Live Content</div>,
 }))
 
 describe('App', () => {
@@ -21,24 +27,25 @@ describe('App', () => {
     expect(screen.getByText('Compliance Dashboard')).toBeInTheDocument()
   })
 
-  it('shows the Compliance tab by default', () => {
+  it('shows the Dashboard tab by default', () => {
     render(<App />)
+    expect(screen.getByTestId('dashboard-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('compliance-page')).not.toBeInTheDocument()
+  })
+
+  it('switches to Compliance tab on click', () => {
+    render(<App />)
+    const complianceTab = screen.getByRole('tab', { name: /Compliance/ })
+    fireEvent.click(complianceTab)
     expect(screen.getByTestId('compliance-page')).toBeInTheDocument()
-    expect(screen.queryByTestId('monitoring-page')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-page')).not.toBeInTheDocument()
   })
 
   it('switches to Monitoring tab on click', () => {
     render(<App />)
-    fireEvent.click(screen.getByText(/Monitoring/))
+    const monitoringTab = screen.getByRole('tab', { name: /Monitoring/ })
+    fireEvent.click(monitoringTab)
     expect(screen.getByTestId('monitoring-page')).toBeInTheDocument()
-    expect(screen.queryByTestId('compliance-page')).not.toBeInTheDocument()
-  })
-
-  it('switches back to Compliance tab', () => {
-    render(<App />)
-    fireEvent.click(screen.getByText(/Monitoring/))
-    fireEvent.click(screen.getByText(/Compliance Audit/))
-    expect(screen.getByTestId('compliance-page')).toBeInTheDocument()
   })
 
   it('shows version badge', () => {
