@@ -39,7 +39,7 @@ variable "allowed_ssh_cidr" {
     Tighten this to your group's static egress IP in production, e.g. "203.0.113.0/32".
   EOT
   type    = string
-  default = "14.187.93.155/32"
+  default = "14.169.54.147/32"
 }
 
 # ---------------------------------------------------------------------------

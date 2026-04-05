@@ -7,9 +7,9 @@ scrape_configs:
   - job_name: "cassandra"
     static_configs:
       - targets:
-          - "192.168.56.11:9404"
-          - "192.168.56.12:9404"
-          - "192.168.56.13:9404"
+          - "10.0.1.11:9404"
+          - "10.0.1.12:9404"
+          - "10.0.1.13:9404"
         labels:
           cluster: "cis-cassandra"
 

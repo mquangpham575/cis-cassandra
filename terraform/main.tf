@@ -12,14 +12,14 @@
 #   az storage container create -n tfstate --account-name <SA_NAME>
 # ---------------------------------------------------------------------------
 
-# terraform {
-#   backend "azurerm" {
-#     resource_group_name  = "tfstate-rg"
-#     storage_account_name = "<your-storage-account-name>"   # must be globally unique
-#     container_name       = "tfstate"
-#     key                  = "cis-cassandra/terraform.tfstate"
-#   }
-# }
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "sttfstate1465"
+    container_name       = "tfstate"
+    key                  = "cis-cassandra/terraform.tfstate"
+  }
+}
 
 # ---------------------------------------------------------------------------
 # Provider — pin to azurerm ~> 3.0 to avoid breaking changes from v4

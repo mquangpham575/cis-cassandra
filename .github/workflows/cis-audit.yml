@@ -268,7 +268,9 @@ jobs:
         run: az account show --output table
 
       - name: Sync CIS scripts to cluster nodes
-        if: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        if: env.SSH_KEY != ''
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key

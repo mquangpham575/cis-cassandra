@@ -29,9 +29,15 @@ locals {
       - apt-get install -y cassandra
       # ---- Ensure Java 11 is the active JDK ----
       - update-alternatives --set java /usr/lib/jvm/java-11-openjdk-arm64/bin/java
-      # ---- Stop Cassandra until Ansible/scripts configure the cluster ----
-      - systemctl stop cassandra
-      - systemctl disable cassandra
+      # ---- Configure cassandra.yaml (Member 1 Automation) ----
+      - sed -i "s/cluster_name: 'Test Cluster'/cluster_name: 'CIS Cassandra Cluster'/" /etc/cassandra/cassandra.yaml
+      - sed -i 's/seeds: "127.0.0.1"/seeds: "10.0.1.11"/' /etc/cassandra/cassandra.yaml
+      - sed -i "s/listen_address: localhost/listen_address: $(hostname -I | awk '{print $1}')/" /etc/cassandra/cassandra.yaml
+      - sed -i "s/rpc_address: localhost/rpc_address: 0.0.0.0/" /etc/cassandra/cassandra.yaml
+      - sed -i "s/endpoint_snitch: SimpleSnitch/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml
+      # ---- Enable and Start Cassandra ----
+      - systemctl enable cassandra
+      - systemctl start cassandra
 
     final_message: "cis-cassandra node ready after $UPTIME seconds"
   CLOUDINIT

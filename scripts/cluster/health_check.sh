@@ -7,7 +7,7 @@ set -euo pipefail
 # ── Configuration ─────────────────────────────────────────────────────────────
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
-NODES=("192.168.56.11" "192.168.56.12" "192.168.56.13")
+NODES=("10.0.1.11" "10.0.1.12" "10.0.1.13")
 SSH_OPTS=(-i "${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes)
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
