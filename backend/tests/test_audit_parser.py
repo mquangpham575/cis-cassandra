@@ -4,7 +4,7 @@ import pytest
 from services.audit_parser import parse_report, audit_command, harden_command, _validate_section
 
 GOOD_JSON = json.dumps({
-    "node": "192.168.56.11",
+    "node": "10.0.1.11",
     "timestamp": "2026-04-01T10:00:00Z",
     "score": {
         "total": 2, "automated": 2, "manual": 0,
@@ -19,23 +19,23 @@ GOOD_JSON = json.dumps({
 
 
 def test_parse_report_valid():
-    r = parse_report(GOOD_JSON, "192.168.56.11")
-    assert r.node == "192.168.56.11"
+    r = parse_report(GOOD_JSON, "10.0.1.11")
+    assert r.node == "10.0.1.11"
     assert r.score.total == 2
     assert len(r.checks) == 1
     assert r.error is None
 
 
 def test_parse_report_invalid_json():
-    r = parse_report("{not valid json}", "192.168.56.11")
+    r = parse_report("{not valid json}", "10.0.1.11")
     assert r.score.total == 0
     assert r.error is not None
     assert len(r.checks) == 0
 
 
 def test_parse_report_missing_score_key():
-    bad = json.dumps({"node": "192.168.56.11", "timestamp": "t", "checks": []})
-    r = parse_report(bad, "192.168.56.11")
+    bad = json.dumps({"node": "10.0.1.11", "timestamp": "t", "checks": []})
+    r = parse_report(bad, "10.0.1.11")
     assert r.score.total == 0
     assert r.error is not None
 

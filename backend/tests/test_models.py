@@ -2,7 +2,7 @@
 import pytest
 from models import (
     CheckResult, AuditScore, AuditReport, ClusterAuditReport,
-    HardenRequest, HardenResult, NodeStatus
+    HardenRequest, NodeStatus
 )
 
 
@@ -58,7 +58,7 @@ def test_audit_score_included_in_model_dump():
 
 def test_audit_report_no_error():
     r = AuditReport(
-        node="192.168.56.11",
+        node="10.0.1.11",
         timestamp="2026-04-01T10:00:00Z",
         score=AuditScore(total=1, automated=1, manual=0,
                          passed=1, failed=0, needs_review=0),
@@ -69,7 +69,7 @@ def test_audit_report_no_error():
 
 def test_audit_report_with_error():
     r = AuditReport(
-        node="192.168.56.11",
+        node="10.0.1.11",
         timestamp="2026-04-01T10:00:00Z",
         score=AuditScore(total=0, automated=0, manual=0,
                          passed=0, failed=0, needs_review=0),
@@ -83,7 +83,7 @@ def test_audit_report_with_error():
 def test_cluster_score_aggregated():
     nodes = [
         AuditReport(
-            node=f"192.168.56.1{i}",
+            node=f"10.0.1.1{i}",
             timestamp="2026-04-01T10:00:00Z",
             score=AuditScore(total=10, automated=8, manual=2,
                              passed=7, failed=2, needs_review=1),
@@ -109,7 +109,7 @@ def test_cluster_score_in_model_dump():
         timestamp="2026-04-01T10:00:00Z",
         nodes=[
             AuditReport(
-                node="192.168.56.11",
+                node="10.0.1.11",
                 timestamp="2026-04-01T10:00:00Z",
                 score=AuditScore(total=2, automated=2, manual=0,
                                  passed=2, failed=0, needs_review=0),
@@ -132,5 +132,5 @@ def test_harden_request_defaults():
 # ── NodeStatus ───────────────────────────────────────────────────────────────
 
 def test_node_status_unreachable():
-    n = NodeStatus(ip="192.168.56.11", reachable=False, cassandra_running=False)
+    n = NodeStatus(ip="10.0.1.11", reachable=False, cassandra_running=False)
     assert n.latency_ms is None

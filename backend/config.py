@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     cis_ssh_user: str = Field("cassandra", validation_alias="CIS_SSH_USER")
     # Accepts comma-separated IPs from NODE_IPS env var
     node_ips_str: str = Field(
-        "192.168.56.11,192.168.56.12,192.168.56.13",
+        "10.0.1.11,10.0.1.12,10.0.1.13",
         validation_alias="NODE_IPS",
     )
 

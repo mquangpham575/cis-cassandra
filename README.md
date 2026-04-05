@@ -13,7 +13,7 @@ This platform automatically **audits**, **hardens**, and **monitors** a 3-node A
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Cluster** | 3 × Ubuntu 22.04 VMs | Cassandra nodes at `192.168.56.11–13` |
+| **Cluster** | 3 × Ubuntu 22.04 VMs | Cassandra nodes at `10.0.1.11–13` |
 | **Hardening** | Bash scripts (`scripts/`) | Automated CIS audit + remediation for all 5 sections |
 | **Backend API** | FastAPI + Python 3.12 | SSH orchestration, JSON audit results, SSE streaming |
 | **Dashboard** | React 18 + Vite + Tailwind | Compliance view + live Grafana monitoring |
@@ -34,9 +34,9 @@ This platform automatically **audits**, **hardens**, and **monitors** a 3-node A
                    │ SSH              │ HTTP/SSE
          ┌─────────▼──────────────────▼─────────┐
          │          3-Node Cassandra Cluster      │
-         │   node1: 192.168.56.11  (seed)         │
-         │   node2: 192.168.56.12                 │
-         │   node3: 192.168.56.13                 │
+         │   node1: 10.0.1.11  (seed)         │
+         │   node2: 10.0.1.12                 │
+         │   node3: 10.0.1.13                 │
          │                                         │
          │   JMX Exporter :9404 ──► Prometheus    │
          │                           ──► Grafana   │
@@ -63,7 +63,7 @@ This platform automatically **audits**, **hardens**, and **monitors** a 3-node A
 ### 1. VM Setup (Member 1 — Infrastructure)
 
 ```bash
-# On each VM (192.168.56.11, .12, .13) — Ubuntu 22.04
+# On each VM (10.0.1.11, .12, .13) — Ubuntu 22.04
 sudo apt-get update && sudo apt-get install -y openjdk-8-jdk python3.10
 
 # Install Cassandra 4.0
@@ -73,9 +73,9 @@ sudo apt-get update && sudo apt-get install -y cassandra=4.0.19
 
 # SSH key auth for the backend (run on controller node)
 ssh-keygen -t ed25519 -f ~/.ssh/cis_key -N ""
-ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@192.168.56.11
-ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@192.168.56.12
-ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@192.168.56.13
+ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@10.0.1.11
+ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@10.0.1.12
+ssh-copy-id -i ~/.ssh/cis_key.pub cassandra@10.0.1.13
 ```
 
 ### 2. Run CIS Hardening Scripts (Member 2 — Scripting)
@@ -110,8 +110,8 @@ cp .env.example .env
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# API docs: http://192.168.56.11:8000/docs
-# Health:   http://192.168.56.11:8000/health
+# API docs: http://10.0.1.11:8000/docs
+# Health:   http://10.0.1.11:8000/health
 ```
 
 **Python tests (36 assertions, no real nodes needed):**
@@ -127,8 +127,8 @@ PYTHONPATH=. python -m pytest tests/ -v
 cd monitoring
 docker compose -f docker-compose.monitoring.yml up -d
 
-# Prometheus: http://192.168.56.11:9090
-# Grafana:    http://192.168.56.11:3001  (admin / cis-grafana)
+# Prometheus: http://10.0.1.11:9090
+# Grafana:    http://10.0.1.11:3001  (admin / cis-grafana)
 ```
 
 **Install JMX Exporter on each Cassandra node:**
@@ -172,7 +172,7 @@ npm run build   # outputs to frontend/dist/
 **Step 1 — Show unhardened state:**
 ```bash
 # SSH into node 1
-ssh cassandra@192.168.56.11
+ssh cassandra@10.0.1.11
 sudo bash /opt/cis/cis-tool.sh audit all
 # Expected: multiple FAIL (auth disabled, no TLS, no audit logging)
 ```
@@ -277,15 +277,15 @@ cis-cassandra/
 
 ### Backend (`backend/.env`)
 ```
-NODE_IPS=192.168.56.11,192.168.56.12,192.168.56.13
+NODE_IPS=10.0.1.11,10.0.1.12,10.0.1.13
 CIS_SSH_KEY=~/.ssh/cis_key
 CIS_SSH_USER=cassandra
 ```
 
 ### Frontend (`frontend/.env`)
 ```
-VITE_API_URL=http://192.168.56.11:8000
-VITE_GRAFANA_URL=http://192.168.56.11:3001
+VITE_API_URL=http://10.0.1.11:8000
+VITE_GRAFANA_URL=http://10.0.1.11:3001
 ```
 
 ---

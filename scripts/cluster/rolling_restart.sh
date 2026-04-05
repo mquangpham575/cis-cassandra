@@ -8,7 +8,7 @@ set -euo pipefail
 # ── Configuration ─────────────────────────────────────────────────────────────
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
-NODES=("192.168.56.11" "192.168.56.12" "192.168.56.13")
+NODES=("10.0.1.11" "10.0.1.12" "10.0.1.13")
 SSH_OPTS=(-i "${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 NODE_UP_TIMEOUT="${CIS_NODE_UP_TIMEOUT:-180}"   # seconds to wait for UN state
 POLL_INTERVAL=10                                  # seconds between nodetool polls

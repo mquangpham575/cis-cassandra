@@ -30,7 +30,7 @@ EXAMPLES
   cis-tool.sh audit all --all-nodes
   cis-tool.sh audit 2.1
   cis-tool.sh harden all --all-nodes
-  cis-tool.sh harden 5.1 --node 192.168.56.13
+  cis-tool.sh harden 5.1 --node 10.0.1.13
   cis-tool.sh demo reset --all-nodes
   cis-tool.sh demo attack
   cis-tool.sh cluster status

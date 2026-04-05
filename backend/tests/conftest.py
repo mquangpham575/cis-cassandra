@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from main import app
 
 SAMPLE_REPORT = {
-    "node": "192.168.56.11",
+    "node": "10.0.1.11",
     "timestamp": "2026-04-01T10:00:00Z",
     "score": {
         "total": 20,

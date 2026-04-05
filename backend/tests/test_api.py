@@ -1,6 +1,6 @@
 """Integration tests for FastAPI endpoints (mocked SSH)."""
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -10,7 +10,7 @@ from services.ssh_runner import SSHResult
 
 
 MOCK_REPORT = {
-    "node": "192.168.56.11",
+    "node": "10.0.1.11",
     "timestamp": "2026-04-01T10:00:00Z",
     "score": {
         "total": 2, "automated": 2, "manual": 0,
@@ -65,10 +65,10 @@ async def test_root(client):
 async def test_audit_node_success(client):
     with patch("services.ssh_runner.run",
                return_value=_mock_ssh_success(json.dumps(MOCK_REPORT))):
-        r = await client.get("/api/audit/node/192.168.56.11")
+        r = await client.get("/api/audit/node/10.0.1.11")
     assert r.status_code == 200
     body = r.json()
-    assert body["node"] == "192.168.56.11"
+    assert body["node"] == "10.0.1.11"
     assert body["score"]["total"] == 2
     assert len(body["checks"]) == 2
 
@@ -82,7 +82,7 @@ async def test_audit_node_unknown_ip(client):
 @pytest.mark.asyncio
 async def test_audit_node_ssh_failure(client):
     with patch("services.ssh_runner.run", return_value=_mock_ssh_fail()):
-        r = await client.get("/api/audit/node/192.168.56.11")
+        r = await client.get("/api/audit/node/10.0.1.11")
     # Should still return 200 with empty error report (graceful degradation)
     assert r.status_code == 200
     body = r.json()
@@ -92,7 +92,7 @@ async def test_audit_node_ssh_failure(client):
 
 @pytest.mark.asyncio
 async def test_audit_node_invalid_section(client):
-    r = await client.get("/api/audit/node/192.168.56.11?section=all;cat /etc/passwd")
+    r = await client.get("/api/audit/node/10.0.1.11?section=all;cat /etc/passwd")
     assert r.status_code == 400
 
 
@@ -117,13 +117,13 @@ async def test_harden_node_success(client):
     with patch("services.ssh_runner.run",
                return_value=SSHResult(stdout="[OK] Done", stderr="", exit_code=0)):
         r = await client.post(
-            "/api/harden/node/192.168.56.11",
+            "/api/harden/node/10.0.1.11",
             json={"section": "2", "dry_run": True},
         )
     assert r.status_code == 200
     body = r.json()
     assert body["success"] is True
-    assert body["node"] == "192.168.56.11"
+    assert body["node"] == "10.0.1.11"
 
 
 @pytest.mark.asyncio
@@ -138,7 +138,7 @@ async def test_harden_node_unknown_ip(client):
 @pytest.mark.asyncio
 async def test_harden_node_injection(client):
     r = await client.post(
-        "/api/harden/node/192.168.56.11",
+        "/api/harden/node/10.0.1.11",
         json={"section": "all && evil", "dry_run": False},
     )
     assert r.status_code == 400

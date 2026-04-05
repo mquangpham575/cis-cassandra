@@ -4,7 +4,7 @@
 CASSANDRA_YAML="${CASSANDRA_YAML:-/etc/cassandra/cassandra.yaml}"
 LOGBACK_XML="${LOGBACK_XML:-/etc/cassandra/logback.xml}"
 CASSANDRA_ENV="${CASSANDRA_ENV:-/etc/cassandra/cassandra-env.sh}"
-NODE_IPS=("192.168.56.11" "192.168.56.12" "192.168.56.13")
+NODE_IPS=("10.0.1.11" "10.0.1.12" "10.0.1.13")
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
 

@@ -105,7 +105,7 @@ echo_check "2.1" "Auth enabled" "PASS" "automated" "Auth" "PasswordAuthenticator
 echo_check "2.2" "Authz enabled" "FAIL" "automated" "Auth" "AllowAllAuthorizer" "true" >> "$CHECKS_FILE"
 echo_check "5.1" "Internode TLS" "FAIL" "automated" "Enc" "internode_encryption: none" "true" >> "$CHECKS_FILE"
 
-REPORT=$(build_report "192.168.56.11" "$CHECKS_FILE")
+REPORT=$(build_report "10.0.1.11" "$CHECKS_FILE")
 _assert "build_report output is valid JSON" \
   "echo '$REPORT' | python3 -m json.tool > /dev/null 2>&1"
 _assert "report contains 'node' field" \
