@@ -1,0 +1,83 @@
+# =============================================================================
+# main.tf — Provider, backend, Resource Group, VNet, Subnet
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Remote State — Azure Blob Storage backend
+# Uncomment the terraform{} block below and fill in your values BEFORE running
+# `terraform init` for the first time.
+# Pre-requisites:
+#   az group create -n tfstate-rg -l "Southeast Asia"
+#   az storage account create -n <SA_NAME> -g tfstate-rg --sku Standard_LRS
+#   az storage container create -n tfstate --account-name <SA_NAME>
+# ---------------------------------------------------------------------------
+
+# terraform {
+#   backend "azurerm" {
+#     resource_group_name  = "tfstate-rg"
+#     storage_account_name = "<your-storage-account-name>"   # must be globally unique
+#     container_name       = "tfstate"
+#     key                  = "cis-cassandra/terraform.tfstate"
+#   }
+# }
+
+# ---------------------------------------------------------------------------
+# Provider — pin to azurerm ~> 3.0 to avoid breaking changes from v4
+# ---------------------------------------------------------------------------
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+  required_version = ">= 1.3.0"
+}
+
+provider "azurerm" {
+  skip_provider_registration = true
+  features {}
+  # Credentials are picked up automatically from:
+  #   1. Azure CLI  (`az login`)
+  #   2. Environment variables: ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
+  #   3. Managed Identity (when running inside Azure)
+}
+
+# ---------------------------------------------------------------------------
+# Resource Group — logical container for every resource in this project
+# ---------------------------------------------------------------------------
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+
+  tags = {
+    project     = var.project_name
+    environment = "dev"
+    managed_by  = "terraform"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Virtual Network — /16 gives plenty of room for future subnets
+# ---------------------------------------------------------------------------
+resource "azurerm_virtual_network" "main" {
+  name                = "${var.project_name}-vnet"
+  address_space       = [local.vnet_cidr]
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  tags = {
+    project = var.project_name
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Subnet — /24 hosts all 3 Cassandra nodes (10.0.1.11–13)
+# NSG is associated in nsg.tf via azurerm_subnet_network_security_group_association
+# ---------------------------------------------------------------------------
+resource "azurerm_subnet" "cassandra" {
+  name                 = "${var.project_name}-subnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [local.subnet_cidr]
+}
