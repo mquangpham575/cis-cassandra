@@ -187,7 +187,7 @@ export function DashboardPage() {
         <div className="rounded-xl bg-gray-900 border border-gray-700 border-dashed p-10 text-center text-gray-500">
           <p className="text-4xl mb-3">🛡️</p>
           <p className="font-medium text-gray-300">Ready to audit</p>
-          <p className="text-sm mt-1">Click "Audit All Nodes" to scan the cluster against CIS Benchmark v1.3.0</p>
+          <p className="text-sm mt-1">Click &quot;Audit All Nodes&quot; to scan the cluster against CIS Benchmark v1.3.0</p>
         </div>
       )}
     </div>

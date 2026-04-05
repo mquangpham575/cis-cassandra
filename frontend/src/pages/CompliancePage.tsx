@@ -107,8 +107,7 @@ export function CompliancePage() {
       {state.status === 'idle' && (
         <div className="rounded-xl bg-gray-900 border border-gray-700 border-dashed p-8 text-center text-gray-500">
           <p className="text-4xl mb-2">🔍</p>
-          <p className="font-medium">No audit data yet</p>
-          <p className="text-sm mt-1">Click "Run Audit" to scan all 3 nodes</p>
+          <p className="text-sm mt-1">Click &quot;Run Audit&quot; to scan all 3 nodes</p>
         </div>
       )}
 

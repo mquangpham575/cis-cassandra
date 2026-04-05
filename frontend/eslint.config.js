@@ -11,6 +11,23 @@ export default [
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
+      globals: {
+        fetch: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        EventSource: 'readonly',
+        MessageEvent: 'readonly',
+        HTMLDivElement: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        location: 'readonly',
+        navigator: 'readonly',
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',

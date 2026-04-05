@@ -42,7 +42,7 @@ export function AuditLivePage() {
         setNodes(defaults.map(ip => ({ ip, reachable: false, cassandra_running: false, latency_ms: null })))
         setSelectedIp(defaults[0])
       })
-  }, [])
+  }, [selectedIp])
 
   // Collect stream messages into lines array
   useEffect(() => {
