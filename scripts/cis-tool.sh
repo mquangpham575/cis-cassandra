@@ -1,13 +1,31 @@
 #!/usr/bin/env bash
 # cis-tool.sh — Unified CIS Cassandra 4.0 Benchmark CLI
 # Usage: sudo cis-tool.sh <command> [target] [options]
-set -euo pipefail
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
-# Source all lib files (audit + harden + demo + cluster)
-for f in "$SCRIPT_DIR/lib/"*.sh; do source "$f"; done
+# Source libraries with error checking
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+  source "$SCRIPT_DIR/lib/common.sh"
+else
+  echo "[ERROR] Missing library: $SCRIPT_DIR/lib/common.sh" >&2
+  exit 1
+fi
+
+# Explicitly source known sections to avoid glob issues
+for section in 1 2 3 4 5; do
+  lib="$SCRIPT_DIR/lib/audit_section${section}.sh"
+  [ -f "$lib" ] && source "$lib"
+  lib_h="$SCRIPT_DIR/lib/harden_section${section}.sh"
+  [ -f "$lib_h" ] && source "$lib_h"
+done
+
+# Source other utilities
+for util in cluster demo; do
+  [ -f "$SCRIPT_DIR/lib/${util}.sh" ] && source "$SCRIPT_DIR/lib/${util}.sh"
+done
 
 usage() {
   cat <<EOF
@@ -16,9 +34,10 @@ Usage: cis-tool.sh <command> [target] [options]
 COMMANDS
   audit   [all|1|2|3|4|5|<check-id>]   Run CIS audit checks (outputs JSON)
   harden  [all|1|2|3|4|5|<check-id>]   Apply CIS hardening
+  verify  [all]                         Unified PDF-style verification
+  cluster [deploy|restart|status|recommendations] Cluster management
   report  [--format json|text]          Full compliance report
   demo    [reset|attack]                Demo helpers
-  cluster [deploy|restart|status]       Cluster management
 
 OPTIONS
   --node <ip>     Target a specific remote node via SSH
@@ -157,7 +176,8 @@ cmd_cluster() {
     status)  cluster_status ;;
     restart) cluster_rolling_restart ;;
     deploy)  cluster_deploy ;;
-    *) error "Usage: cis-tool.sh cluster [status|restart|deploy]"; exit 1 ;;
+    recommendations) cluster_recommendations ;;
+    *) error "Usage: cis-tool.sh cluster [status|restart|deploy|recommendations]"; exit 1 ;;
   esac
 }
 
@@ -169,6 +189,7 @@ case "$COMMAND" in
   audit)   cmd_audit "$@" ;;
   harden)  cmd_harden "$@" ;;
   report)  cmd_report "$@" ;;
+  verify)  bash "$SCRIPT_DIR/verify.sh" ;;
   demo)    cmd_demo "$@" ;;
   cluster) cmd_cluster "$@" ;;
   -h|--help|help|"") usage ;;

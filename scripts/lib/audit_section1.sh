@@ -52,14 +52,19 @@ check_1_4() {
 }
 
 check_1_5() {
-  local evidence
-  evidence=$(ps -aef | grep '[j]ava.*cassandra' | awk '{print $1}' | head -1)
-  if [ -n "$evidence" ] && [ "$evidence" != "root" ]; then
-    echo_check "1.5" "Ensure Cassandra service is run as a non-root user" \
-      "PASS" "automated" "$SECTION1" "Running as: $evidence"
-  elif [ "$evidence" = "root" ]; then
-    echo_check "1.5" "Ensure Cassandra service is run as a non-root user" \
-      "FAIL" "automated" "$SECTION1" "Running as root!" "true"
+  local cass_pid proc_uid
+  # Find PID of java process that looks like Cassandra
+  cass_pid=$(pgrep -f "java.*cassandra" | head -1)
+  
+  if [ -n "$cass_pid" ]; then
+    proc_uid=$(ps -o uid= -p "$cass_pid" | tr -d ' ')
+    if [ "$proc_uid" = "0" ]; then
+      echo_check "1.5" "Ensure Cassandra service is run as a non-root user" \
+        "FAIL" "automated" "$SECTION1" "Running as root!" "true"
+    else
+      echo_check "1.5" "Ensure Cassandra service is run as a non-root user" \
+        "PASS" "automated" "$SECTION1" "Running as UID: $proc_uid"
+    fi
   else
     echo_check "1.5" "Ensure Cassandra service is run as a non-root user" \
       "FAIL" "automated" "$SECTION1" "Cassandra process not found" "true"

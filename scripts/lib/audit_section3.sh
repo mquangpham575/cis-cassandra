@@ -51,14 +51,22 @@ check_3_3() {
 }
 
 check_3_4() {
-  local evidence
-  evidence=$(ps -ef | awk '$1 == "cassandra"' | head -2 || echo "no cassandra process")
-  if ps -ef | awk '$1 == "cassandra"' | grep -q .; then
-    echo_check "3.4" "Ensure Cassandra runs as non-privileged dedicated account" \
-      "PASS" "automated" "$SECTION3" "$evidence"
+  local cass_pid cass_uid proc_uid
+  cass_uid=$(id -u cassandra 2>/dev/null || echo "notfound")
+  cass_pid=$(pgrep -f "java.*cassandra" | head -1)
+
+  if [ -n "$cass_pid" ]; then
+    proc_uid=$(ps -o uid= -p "$cass_pid" | tr -d ' ')
+    if [ "$proc_uid" = "$cass_uid" ]; then
+      echo_check "3.4" "Ensure Cassandra runs as non-privileged dedicated account" \
+        "PASS" "automated" "$SECTION3" "Running as matching UID: $proc_uid"
+    else
+      echo_check "3.4" "Ensure Cassandra runs as non-privileged dedicated account" \
+        "FAIL" "automated" "$SECTION3" "Cassandra NOT running as 'cassandra' user (UID: $proc_uid)" "true"
+    fi
   else
     echo_check "3.4" "Ensure Cassandra runs as non-privileged dedicated account" \
-      "FAIL" "automated" "$SECTION3" "Cassandra not running as 'cassandra' user" "true"
+      "FAIL" "automated" "$SECTION3" "Cassandra process not found" "true"
   fi
 }
 

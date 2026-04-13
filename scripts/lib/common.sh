@@ -4,9 +4,21 @@
 CASSANDRA_YAML="${CASSANDRA_YAML:-/etc/cassandra/cassandra.yaml}"
 LOGBACK_XML="${LOGBACK_XML:-/etc/cassandra/logback.xml}"
 CASSANDRA_ENV="${CASSANDRA_ENV:-/etc/cassandra/cassandra-env.sh}"
-NODE_IPS=("10.0.1.11" "10.0.1.12" "10.0.1.13")
+NODE_IPS=("4.193.213.85" "4.193.208.18" "4.193.98.211")
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
+
+# Colors (only if terminal)
+NC='\033[0m'
+if [ -t 1 ]; then
+  GREEN='\033[0;32m'
+  RED='\033[0;31m'
+  YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'
+  BLUE='\033[0;34m'
+else
+  GREEN='' RED='' YELLOW='' CYAN='' BLUE='' NC=''
+fi
 
 # Emit one JSON check result line
 # Usage: echo_check <id> <title> <status> <type> <section> <evidence> [remediable]

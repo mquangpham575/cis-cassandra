@@ -12,14 +12,35 @@ apply_3_1() {
     info "  [dry-run] Would create superuser role '${admin_user}'"
     return
   fi
-  if cqlsh "$_CQLSH_HOST" -u cassandra -p "${cass_pass}" \
-      --connect-timeout=10 --request-timeout=15 -e \
-      "CREATE ROLE IF NOT EXISTS '${admin_user}'
-       WITH PASSWORD='${admin_pass}' AND LOGIN=TRUE AND SUPERUSER=TRUE;" \
-      2>/dev/null; then
+  
+  # Retry loop handles the 'auth sync' delay after restart
+  local success=false
+  for i in {1..5}; do
+    if cqlsh "$_CQLSH_HOST" -u cassandra -p "${cass_pass}" \
+        --connect-timeout=15 --request-timeout=20 -e \
+        "CREATE ROLE IF NOT EXISTS '${admin_user}'
+         WITH PASSWORD='${admin_pass}' AND LOGIN=TRUE AND SUPERUSER=TRUE;" \
+        2>/dev/null; then
+      success=true
+      break
+    fi
+    # If initial password works, try that too (covers first-run case)
+    if cqlsh "$_CQLSH_HOST" -u cassandra -p cassandra \
+        --connect-timeout=5 --request-timeout=10 -e \
+        "CREATE ROLE IF NOT EXISTS '${admin_user}'
+         WITH PASSWORD='${admin_pass}' AND LOGIN=TRUE AND SUPERUSER=TRUE;" \
+        2>/dev/null; then
+      success=true
+      break
+    fi
+    warn "  [CIS 3.1] Auth not ready or wrong password (attempt $i/5), waiting..."
+    sleep 15
+  done
+
+  if $success; then
     success "[CIS 3.1] Superuser role '${admin_user}' created/confirmed"
   else
-    warn "[CIS 3.1] Could not create role (auth not yet active or wrong password) — run again after restart"
+    error "[CIS 3.1] Failed to create role after 5 attempts."
   fi
 }
 
