@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# CIS 1.4: Ensure that the latest Cassandra version is installed
 audit_1_4() {
     local CHECK_ID="1.4"
     local TITLE="Latest Cassandra version installed"
@@ -14,15 +15,25 @@ audit_1_4() {
 
     if [[ "$current_val" == 4.0.* ]]; then
         json_result "$CHECK_ID" "$TITLE" "PASS" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
-    else
-        json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
+        return 0
     fi
+    
+    json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
+    return 1
 }
 
 harden_1_4() {
-    log_warn "Manual action: Upgrade Cassandra cluster manually."
+    echo "Updating package repositories..."
+    sudo apt-get update -y > /dev/null
+    echo "Upgrading Cassandra to the latest 4.0.x patch..."
+    sudo apt-get install --only-upgrade cassandra -y
 }
 
 verify_1_4() {
-    audit_1_4
+    if ! audit_1_4 > /dev/null 2>&1; then
+        harden_1_4
+        audit_1_4
+    else
+        audit_1_4
+    fi
 }
