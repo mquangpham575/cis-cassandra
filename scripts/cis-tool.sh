@@ -1,197 +1,170 @@
 #!/usr/bin/env bash
-# cis-tool.sh — Unified CIS Cassandra 4.0 Benchmark CLI
-# Usage: sudo cis-tool.sh <command> [target] [options]
+# cis-tool.sh - Member 2 Unified Dynamic Tool (v3.0 - Dashboard UI)
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
 
-# Source libraries with error checking
+# Load Core Library
 if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
-  source "$SCRIPT_DIR/lib/common.sh"
+    source "$SCRIPT_DIR/lib/common.sh"
 else
-  echo "[ERROR] Missing library: $SCRIPT_DIR/lib/common.sh" >&2
-  exit 1
+    echo "[ERROR] Missing library: $SCRIPT_DIR/lib/common.sh" >&2
+    exit 1
 fi
 
-# Explicitly source known sections to avoid glob issues
-for section in 1 2 3 4 5; do
-  lib="$SCRIPT_DIR/lib/audit_section${section}.sh"
-  [ -f "$lib" ] && source "$lib"
-  lib_h="$SCRIPT_DIR/lib/harden_section${section}.sh"
-  [ -f "$lib_h" ] && source "$lib_h"
-done
-
-# Source other utilities
-for util in cluster demo; do
-  [ -f "$SCRIPT_DIR/lib/${util}.sh" ] && source "$SCRIPT_DIR/lib/${util}.sh"
-done
-
 usage() {
-  cat <<EOF
-Usage: cis-tool.sh <command> [target] [options]
-
-COMMANDS
-  audit   [all|1|2|3|4|5|<check-id>]   Run CIS audit checks (outputs JSON)
-  harden  [all|1|2|3|4|5|<check-id>]   Apply CIS hardening
-  verify  [all]                         Unified PDF-style verification
-  cluster [deploy|restart|status|recommendations] Cluster management
-  report  [--format json|text]          Full compliance report
-  demo    [reset|attack]                Demo helpers
-
-OPTIONS
-  --node <ip>     Target a specific remote node via SSH
-  --all-nodes     Run on all configured nodes (${NODE_IPS[*]})
-  --dry-run       Show what would change, without applying
-
-EXAMPLES
-  cis-tool.sh audit all
-  cis-tool.sh audit all --all-nodes
-  cis-tool.sh audit 2.1
-  cis-tool.sh harden all --all-nodes
-  cis-tool.sh harden 5.1 --node 10.0.1.13
-  cis-tool.sh demo reset --all-nodes
-  cis-tool.sh demo attack
-  cis-tool.sh cluster status
-EOF
+    echo "Usage: sudo ./scripts/cis-tool.sh [audit|harden|verify] [1|2|3|4|5|os|all]"
+    echo "  Example 1: sudo ./scripts/cis-tool.sh audit 3"
+    echo "  Example 2: sudo ./scripts/cis-tool.sh verify (Quét toàn cụm)"
 }
 
-# Parse flags
-DRY_RUN=false
-TARGET_NODE=""
-ALL_NODES=false
+# =========================================================================
+# UI DASHBOARD FUNCTION
+# =========================================================================
+print_dashboard() {
+    local json_file=$1
+    local node_name=$2
+    
+    echo ""
+    echo -e "\e[36m>>> NODE: $node_name\e[0m"
+    echo "--------------------------------------------------------------------------------------"
+    printf "%-5s %-70s %s\n" "ID" "RECOMMENDATION TITLE" "STATUS"
+    echo "--------------------------------------------------------------------------------------"
+    
+    if [ ! -f "$json_file" ]; then
+        echo -e "\e[31m[ERROR] Report not found for $node_name\e[0m\n"
+        return
+    fi
 
-parse_flags() {
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --dry-run)    DRY_RUN=true; shift ;;
-      --node)       TARGET_NODE="$2"; shift 2 ;;
-      --all-nodes)  ALL_NODES=true; shift ;;
-      *)            shift ;;
-    esac
-  done
-}
-
-run_on_node() {
-  local node="$1" cmd="$2"
-  if [ "$node" = "localhost" ]; then
-    bash -c "$cmd"
-  else
-    ssh_run "$node" "sudo $cmd"
-  fi
-}
-
-run_on_targets() {
-  local cmd="$1"
-  if $ALL_NODES; then
-    for node in "${NODE_IPS[@]}"; do
-      echo "--- Node: $node ---" >&2
-      run_on_node "$node" "$cmd"
+    grep '"check_id"' "$json_file" | while read -r line; do
+        local id=$(echo "$line" | grep -o '"check_id":"[^"]*"' | cut -d'"' -f4)
+        local title=$(echo "$line" | grep -o '"title":"[^"]*"' | cut -d'"' -f4)
+        local status=$(echo "$line" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+        
+        local color_reset="\e[0m"
+        local color_green="\e[32m"
+        local color_red="\e[31m"
+        local color_yellow="\e[33m"
+        
+        local colored_status
+        if [[ "$status" == "PASS" ]]; then
+            colored_status="${color_green}[PASS]${color_reset}"
+        elif [[ "$status" == "FAIL" || "$status" == "ERROR" ]]; then
+            colored_status="${color_red}[FAIL]${color_reset}"
+        else
+            colored_status="${color_yellow}[WARN]${color_reset}" # MANUAL check
+        fi
+        
+        title=${title:0:68}
+        
+        printf "%-5s %-70s %b\n" "$id" "$title" "$colored_status"
     done
-  elif [ -n "$TARGET_NODE" ]; then
-    run_on_node "$TARGET_NODE" "$cmd"
-  else
-    bash -c "$cmd"
-  fi
+    echo ""
 }
 
-cmd_audit() {
-  parse_flags "$@"
-  local target="${1:-all}"
-  local TMPFILE
-  TMPFILE=$(mktemp)
-  # shellcheck disable=SC2064
-  trap "rm -f $TMPFILE" EXIT
+# =========================================================================
+# CORE FUNCTIONS
+# =========================================================================
+run_task() {
+    local mode=$1
+    local target=$2
+    local TMPFILE=$(mktemp)
+    trap "rm -f $TMPFILE" EXIT
 
-  case "$target" in
-    all)
-      check_section_1 >> "$TMPFILE"
-      check_section_2 >> "$TMPFILE"
-      check_section_3 >> "$TMPFILE"
-      check_section_4 >> "$TMPFILE"
-      check_section_5 >> "$TMPFILE"
-      ;;
-    1) check_section_1 >> "$TMPFILE" ;;
-    2) check_section_2 >> "$TMPFILE" ;;
-    3) check_section_3 >> "$TMPFILE" ;;
-    4) check_section_4 >> "$TMPFILE" ;;
-    5) check_section_5 >> "$TMPFILE" ;;
-    *.*)
-      fn="check_$(echo "$target" | tr '.' '_')"
-      if ! declare -f "$fn" > /dev/null 2>&1; then
-        error "No audit function for check: $target (expected: $fn)"; exit 1
-      fi
-      "$fn" >> "$TMPFILE"
-      ;;
-    *) error "Unknown audit target: $target"; usage; exit 1 ;;
-  esac
+    local DIRS_TO_SCAN=()
 
-  local node_ip
-  node_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
-  build_report "$node_ip" "$TMPFILE"
+    if [[ "$target" == "all" ]]; then
+        for d in "$SCRIPT_DIR/sections"/*/; do
+            [[ -d "$d" ]] && DIRS_TO_SCAN+=("$d")
+        done
+    elif [[ "$target" == "os" || "$target" == "os_custom" ]]; then
+        DIRS_TO_SCAN+=("$SCRIPT_DIR/sections/os_custom/")
+    else
+        local found=$(find "$SCRIPT_DIR/sections" -maxdepth 1 -type d -name "${target}_*" | head -n 1)
+        if [[ -n "$found" ]]; then
+            DIRS_TO_SCAN+=("$found/")
+        else
+            log_err "Section directory not found for: $target"
+            exit 1
+        fi
+    fi
+
+    for SEARCH_DIR in "${DIRS_TO_SCAN[@]}"; do
+        log_info "Scanning section: $(basename "$SEARCH_DIR")"
+        
+        for script in $(find "$SEARCH_DIR" -name "check_*.sh" | sort); do
+            source "$script"
+            local check_suffix=$(basename "$script" .sh | sed 's/check_//')
+            
+            if [[ "$mode" == "audit" ]]; then
+                audit_${check_suffix} >> "$TMPFILE"
+            elif [[ "$mode" == "harden" ]]; then
+                harden_${check_suffix}
+            fi
+        done
+    done
+
+    if [[ "$mode" == "audit" ]]; then
+        local ip=$(hostname -I | awk '{print $1}' || echo "localhost")
+        local REPORT_PATH="$SCRIPT_DIR/reports/report.json"
+        
+        log_info "Generating Consolidated JSON Report..."
+        mkdir -p "$SCRIPT_DIR/reports"
+        build_report "$ip" "$TMPFILE" > "$REPORT_PATH"
+        
+        log_ok "Report saved at: $REPORT_PATH"
+        
+        print_dashboard "$REPORT_PATH" "Local Node ($ip)"
+        
+        if grep -qE '"status":"(FAIL|ERROR)"' "$REPORT_PATH"; then
+            log_warn "Audit FAILED. Please review findings before merging."
+            exit 1
+        fi
+        log_ok "Audit PASSED successfully."
+    fi
 }
 
-cmd_harden() {
-  parse_flags "$@"
-  local target="${1:-all}"
-  case "$target" in
-    all)
-      harden_section_1; harden_section_2; harden_section_3
-      harden_section_4; harden_section_5
-      ;;
-    1) harden_section_1 ;;
-    2) harden_section_2 ;;
-    3) harden_section_3 ;;
-    4) harden_section_4 ;;
-    5) harden_section_5 ;;
-    *.*)
-      fn="apply_$(echo "$target" | tr '.' '_')"
-      if ! declare -f "$fn" > /dev/null 2>&1; then
-        error "No harden function for check: $target (expected: $fn)"; exit 1
-      fi
-      "$fn"
-      ;;
-    *) error "Unknown harden target: $target"; usage; exit 1 ;;
-  esac
+run_verify() {
+    clear
+    echo -e "\e[36m======================================================================\e[0m"
+    echo -e "\e[36m  CIS CASSANDRA 4.0 BENCHMARK VERIFICATION REPORT\e[0m"
+    echo -e "\e[36m  Generated: $(date +'%Y-%m-%d %H:%M:%S')\e[0m"
+    echo -e "\e[36m======================================================================\e[0m\n"
+    
+    echo -e "\e[33m[INFO] Requesting audit data from all nodes in parallel via Azure...\e[0m"
+    echo -e "\e[33m[INFO] This usually takes 15-30 seconds. Please wait.\e[0m\n"
+
+    sudo "$SCRIPT_DIR/cis-tool.sh" audit all > /dev/null 2>&1
+    print_dashboard "$SCRIPT_DIR/reports/report.json" "node1 (cis-cassandra-node1)"
+
+    # Uncomment when Node 2 and Node 3 are ready with SSH keys
+    # echo -e "\e[33m[INFO] Fetching from Node 2 (10.0.1.12)...\e[0m"
+    # ssh cassandra@10.0.1.12 "sudo ~/cis-cassandra/scripts/cis-tool.sh audit all" > /dev/null 2>&1
+    # scp cassandra@10.0.1.12:~/cis-cassandra/scripts/reports/report.json "$SCRIPT_DIR/reports/node2.json" > /dev/null 2>&1
+    # print_dashboard "$SCRIPT_DIR/reports/node2.json" "node2 (cis-cassandra-node2)"
+
+    # echo -e "\e[33m[INFO] Fetching from Node 3 (10.0.1.13)...\e[0m"
+    # ssh cassandra@10.0.1.13 "sudo ~/cis-cassandra/scripts/cis-tool.sh audit all" > /dev/null 2>&1
+    # scp cassandra@10.0.1.13:~/cis-cassandra/scripts/reports/report.json "$SCRIPT_DIR/reports/node3.json" > /dev/null 2>&1
+    # print_dashboard "$SCRIPT_DIR/reports/node3.json" "node3 (cis-cassandra-node3)"
 }
 
-cmd_report() {
-  parse_flags "$@"
-  cmd_audit all
-}
+CMD=${1:-}
+TARGET=${2:-}
 
-cmd_demo() {
-  local subcmd="${1:-}"
-  parse_flags "$@"
-  case "$subcmd" in
-    reset)  demo_reset ;;
-    attack) demo_attack ;;
-    *) error "Usage: cis-tool.sh demo [reset|attack]"; exit 1 ;;
-  esac
-}
-
-cmd_cluster() {
-  local subcmd="${1:-}"
-  case "$subcmd" in
-    status)  cluster_status ;;
-    restart) cluster_rolling_restart ;;
-    deploy)  cluster_deploy ;;
-    recommendations) cluster_recommendations ;;
-    *) error "Usage: cis-tool.sh cluster [status|restart|deploy|recommendations]"; exit 1 ;;
-  esac
-}
-
-# Main dispatch
-COMMAND="${1:-}"
-shift || true
-
-case "$COMMAND" in
-  audit)   cmd_audit "$@" ;;
-  harden)  cmd_harden "$@" ;;
-  report)  cmd_report "$@" ;;
-  verify)  bash "$SCRIPT_DIR/verify.sh" ;;
-  demo)    cmd_demo "$@" ;;
-  cluster) cmd_cluster "$@" ;;
-  -h|--help|help|"") usage ;;
-  *) error "Unknown command: $COMMAND"; usage; exit 1 ;;
+case "$CMD" in
+    audit)  
+        [[ -z "$TARGET" ]] && { usage; exit 1; }
+        run_task "audit" "$TARGET" 
+        ;;
+    harden) 
+        [[ -z "$TARGET" ]] && { usage; exit 1; }
+        run_task "harden" "$TARGET" 
+        ;;
+    verify) 
+        run_verify 
+        ;;
+    *)      
+        usage; exit 1 
+        ;;
 esac

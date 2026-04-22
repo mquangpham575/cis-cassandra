@@ -1,0 +1,15 @@
+{
+  "node": "192.168.3.134",
+  "timestamp": "2026-04-18T12:07:07Z",
+  "score": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "manual": 0
+0
+  },
+  "checks": [
+    {"check_id":"5.1","title":"Inter-node Encryption (TLS)","status":"FAIL","severity":"HIGH","current_value":"none","expected_value":"all, dc, or rack","remediation":"Set internode_encryption in cassandra.yaml.","section":"5 Encryption","node":"192.168.3.134","timestamp":"2026-04-18T12:07:07Z"},
+    {"check_id":"5.2","title":"Client Encryption (TLS)","status":"PASS","severity":"HIGH","current_value":"true","expected_value":"enabled: true","remediation":"Set enabled to true under client_encryption_options in cassandra.yaml.","section":"5 Encryption","node":"192.168.3.134","timestamp":"2026-04-18T12:07:07Z"}
+  ]
+}
