@@ -24,7 +24,6 @@ audit_1_2() {
 }
 
 harden_1_2() {
-    echo "Installing/Upgrading Java (OpenJDK 11)..."
     sudo apt-get update -y > /dev/null
     sudo apt-get install openjdk-11-jre-headless -y
 }
