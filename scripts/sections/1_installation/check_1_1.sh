@@ -18,10 +18,7 @@ audit_1_1() {
 }
 
 harden_1_1() {
-    echo "Creating dedicated group 'cassandra'..."
     sudo groupadd cassandra 2>/dev/null || true
-    
-    echo "Creating dedicated user 'cassandra'..."
     # Create system user without login shell for better security
     sudo useradd -g cassandra -s /bin/false -m cassandra 2>/dev/null || true
 }
