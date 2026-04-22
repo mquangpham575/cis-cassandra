@@ -23,9 +23,7 @@ audit_1_4() {
 }
 
 harden_1_4() {
-    echo "Updating package repositories..."
     sudo apt-get update -y > /dev/null
-    echo "Upgrading Cassandra to the latest 4.0.x patch..."
     sudo apt-get install --only-upgrade cassandra -y
 }
 
