@@ -24,7 +24,6 @@ audit_1_3() {
 }
 
 harden_1_3() {
-    echo "Installing/Upgrading Python 3..."
     sudo apt-get update -y > /dev/null
     sudo apt-get install python3 -y
 }
