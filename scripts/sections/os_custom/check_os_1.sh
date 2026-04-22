@@ -15,3 +15,5 @@ audit_os_1() {
         json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "Swap: $swap_total MB" "$EXPECTED" "$REMEDIATION" "$SECTION"
     fi
 }
+harden_os_1() { log_info "Disabling swap..."; sudo swapoff -a; sudo sed -i "/swap/d" /etc/fstab; }
+verify_os_1() { if ! audit_os_1 >/dev/null 2>&1; then harden_os_1; audit_os_1; else audit_os_1; fi; }

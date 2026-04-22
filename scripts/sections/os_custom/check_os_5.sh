@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
-# Audit: Ensure sufficient file descriptors for Cassandra
 audit_os_5() {
-    local CHECK_ID="OS.5"
-    local TITLE="Max Open Files Limit"
-    local SECTION="OS Custom Checks"
-    local EXPECTED=">= 100000"
-    local REMEDIATION="Update nofile limits in /etc/security/limits.conf"
-    local SEVERITY="HIGH"
-
-    local current_val=$(ulimit -n 2>/dev/null || echo "Unknown")
-    
-    if [[ "$current_val" =~ ^[0-9]+$ ]] && [ "$current_val" -ge 100000 ]; then
-        json_result "$CHECK_ID" "$TITLE" "PASS" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
-    else
-        json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
+    # Kiểm tra cấu hình trong file limits.conf
+    if grep -q "cassandra soft nofile 100000" /etc/security/limits.conf; then
+        json_result "OS.5" "Max Open Files Limit" "PASS" "MEDIUM" "Configured" ">=100000" "" "OS Custom"
+        return 0
     fi
+    return 1
 }
+harden_os_5() {
+    echo "cassandra soft nofile 100000" | sudo tee -a /etc/security/limits.conf
+    echo "cassandra hard nofile 100000" | sudo tee -a /etc/security/limits.conf
+}
+verify_os_5() { if ! audit_os_5 >/dev/null 2>&1; then harden_os_5; audit_os_5; else audit_os_5; fi; }

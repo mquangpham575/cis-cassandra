@@ -16,3 +16,5 @@ audit_os_6() {
         json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
     fi
 }
+harden_os_6() { log_info "Setting vm.swappiness=1..."; sudo sysctl -w vm.swappiness=1; }
+verify_os_6() { if ! audit_os_6 >/dev/null 2>&1; then harden_os_6; audit_os_6; else audit_os_6; fi; }

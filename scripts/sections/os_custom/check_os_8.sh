@@ -16,3 +16,5 @@ audit_os_8() {
         json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
     fi
 }
+harden_os_8() { log_info "Disabling IPv6..."; sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1; }
+verify_os_8() { if ! audit_os_8 >/dev/null 2>&1; then harden_os_8; audit_os_8; else audit_os_8; fi; }

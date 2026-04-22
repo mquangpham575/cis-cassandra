@@ -16,3 +16,5 @@ audit_os_7() {
         json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
     fi
 }
+harden_os_7() { log_info "Setting vm.max_map_count=1048575..."; sudo sysctl -w vm.max_map_count=1048575; }
+verify_os_7() { if ! audit_os_7 >/dev/null 2>&1; then harden_os_7; audit_os_7; else audit_os_7; fi; }

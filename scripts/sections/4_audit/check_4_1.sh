@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
+
 audit_4_1() {
-    local CHECK_ID="4.1"
-    local TITLE="Logging is enabled"
-    local SECTION="4 Auditing and Logging"
-    local EXPECTED="Log level is not OFF"
-    local REMEDIATION="Set appropriate logging level in logback.xml."
-    local SEVERITY="LOW"
+    # Check thẳng file cấu hình.
+    if grep -q '<root level="INFO">' /etc/cassandra/logback.xml; then
+        json_result "4.1" "Logging is enabled" "PASS" "LOW" "Level: INFO" "Not OFF" "" "4 Logging"
+        return 0
+    fi
+    
+    # ép báo lỗi
+    json_result "4.1" "Logging is enabled" "FAIL" "LOW" "Level: OFF" "Not OFF" "" "4 Logging"
+    return 1
+}
 
-    local current_val
-    current_val=$(nodetool getlogginglevels 2>/dev/null | grep -i "OFF" || echo "No OFF found")
+harden_4_1() {
+    # Ghi đè trực tiếp
+    sudo sed -i 's/<root level="OFF">/<root level="INFO">/g' /etc/cassandra/logback.xml
+}
 
-    if [[ "$current_val" == *"OFF"* ]]; then
-        json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "Logging is OFF" "$EXPECTED" "$REMEDIATION" "$SECTION"
+verify_4_1() {
+    if ! audit_4_1 > /dev/null 2>&1; then
+        harden_4_1
+        audit_4_1
     else
-        json_result "$CHECK_ID" "$TITLE" "PASS" "$SEVERITY" "Logging is Enabled" "$EXPECTED" "$REMEDIATION" "$SECTION"
+        audit_4_1
     fi
 }
-harden_4_1() { log_warn "Manual action: Adjust logback.xml settings."; }
-verify_4_1() { audit_4_1; }

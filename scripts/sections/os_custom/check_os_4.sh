@@ -16,3 +16,5 @@ audit_os_4() {
         json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
     fi
 }
+harden_os_4() { log_info "Optimizing TCP Keepalive..."; sudo sysctl -w net.ipv4.tcp_keepalive_time=300; }
+verify_os_4() { if ! audit_os_4 >/dev/null 2>&1; then harden_os_4; audit_os_4; else audit_os_4; fi; }
