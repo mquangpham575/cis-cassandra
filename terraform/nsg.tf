@@ -33,9 +33,23 @@ resource "azurerm_network_security_group" "cassandra" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = var.allowed_ssh_cidr
+    source_address_prefixes    = var.allowed_ssh_ips
     destination_address_prefix = "*"
     description                = "SSH access — restrict via allowed_ssh_cidr variable"
+  }
+
+  # ---- SSH (port 22) intra-VNet — for lateral administration -------------
+  security_rule {
+    name                       = "allow-ssh-internal"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = local.vnet_cidr
+    destination_address_prefix = local.subnet_cidr
+    description                = "SSH access — allow nodes to manage each other"
   }
 
   # ---- Cassandra native transport (9042) — clients & drivers ---------------
@@ -120,6 +134,20 @@ resource "azurerm_network_security_group" "cassandra" {
     source_address_prefix      = local.vnet_cidr
     destination_address_prefix = local.subnet_cidr
     description                = "Prometheus — intra-VNet access for all nodes"
+  }
+
+  # ---- ICMP (Ping) intra-VNet — all nodes ---------------------------------
+  security_rule {
+    name                       = "allow-icmp-vnet"
+    priority                   = 260
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Icmp"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = local.vnet_cidr
+    destination_address_prefix = local.subnet_cidr
+    description                = "ICMP (Ping) — intra-VNet access for diagnostics"
   }
 
   # ---- Grafana (3000) external — node1 (seed/monitoring node) only --------

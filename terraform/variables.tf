@@ -5,41 +5,34 @@
 variable "project_name" {
   description = "Project name used as a prefix for all resource names"
   type        = string
-  default     = "cis-cassandra"
 }
 
 variable "resource_group_name" {
   description = "Name of the Azure Resource Group to create all resources in"
   type        = string
-  default     = "rg-cis-cassandra"
 }
 
 variable "location" {
   description = "Azure region for all resources"
   type        = string
-  default     = "Southeast Asia"
 }
 
 variable "vm_size" {
   description = "Azure VM SKU"
   type        = string
-  default     = "Standard_B2ps_v2"
 }
 
 variable "ssh_public_key_path" {
   description = "Absolute path to the SSH public key file (.pub) used for VM authentication. Password auth is disabled."
   type        = string
-  default     = "~/.ssh/cis_key.pub"
 }
 
-variable "allowed_ssh_cidr" {
+variable "allowed_ssh_ips" {
   description = <<-EOT
-    CIDR block allowed to reach port 22 on the VMs.
-    Default 0.0.0.0/0 keeps things flexible for the team during development.
-    Tighten this to your group's static egress IP in production, e.g. "203.0.113.0/32".
+    List of CIDR blocks allowed to reach port 22 on the VMs.
+    Include your teammates' public IPs here.
   EOT
-  type    = string
-  default = "14.169.54.147/32"
+  type    = list(string)
 }
 
 # ---------------------------------------------------------------------------

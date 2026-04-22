@@ -8,7 +8,7 @@
 # Cassandra is installed via the official Apache apt repo so version is fixed.
 # ---------------------------------------------------------------------------
 locals {
-  cloud_init_script = base64encode(<<-CLOUDINIT
+  raw_cloud_init = <<-CLOUDINIT
     #cloud-config
     package_update: true
     package_upgrade: false
@@ -41,7 +41,8 @@ locals {
 
     final_message: "cis-cassandra node ready after $UPTIME seconds"
   CLOUDINIT
-  )
+
+  cloud_init_script = base64encode(replace(local.raw_cloud_init, "\r\n", "\n"))
 }
 
 # ---------------------------------------------------------------------------
@@ -139,6 +140,10 @@ resource "azurerm_linux_virtual_machine" "node" {
 
   # cloud-init: installs JDK 11, Python 3.10, Cassandra 4.0 on first boot
   custom_data = local.cloud_init_script
+
+  lifecycle {
+    ignore_changes = [custom_data]
+  }
 
   tags = {
     project = var.project_name

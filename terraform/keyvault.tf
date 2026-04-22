@@ -8,11 +8,17 @@
 data "azurerm_client_config" "current" {}
 
 # ---------------------------------------------------------------------------
+# Random ID for unique naming (replaces timestamp to prevent destruction)
+# ---------------------------------------------------------------------------
+resource "random_id" "kv_suffix" {
+  byte_length = 3
+}
+
+# ---------------------------------------------------------------------------
 # Azure Key Vault — Storage for SSH keys, DB passwords, etc.
-# Note: Key Vault names must be globally unique.
 # ---------------------------------------------------------------------------
 resource "azurerm_key_vault" "main" {
-  name                        = "${var.project_name}-kv-${formatdate("DDMMYY", timestamp())}" # Append date for uniqueness
+  name                        = "${var.project_name}-kv-${random_id.kv_suffix.hex}" # Append date for uniqueness
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
   enabled_for_disk_encryption = true
