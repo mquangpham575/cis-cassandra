@@ -1,29 +1,43 @@
 #!/usr/bin/env bash
 
+# CIS 1.6: Ensure that clocks are synchronized across the cluster
 audit_1_6() {
     local CHECK_ID="1.6"
     local TITLE="Clocks are synchronized"
     local SECTION="1 Installation and Updates"
     local EXPECTED="NTP Active"
-    local REMEDIATION="Install and start NTP/chrony on every node."
     local SEVERITY="HIGH"
 
-    local current_val
-    if timedatectl status 2>/dev/null | grep -q "systemd-timesyncd.service active" || timedatectl status 2>/dev/null | grep -qi "NTP service: active"; then
-        current_val="NTP is Active"
-    elif ps -aef | grep -E 'ntpd|chronyd' | grep -v grep > /dev/null; then
-        current_val="NTP/Chrony process running"
-    else
-        current_val="NTP not found or inactive"
+    # Check if chrony or ntp service is active
+    local ntp_status
+    ntp_status=$(timedatectl status | grep "System clock synchronized" | awk '{print $4}')
+    
+    if [[ "$ntp_status" == "yes" ]]; then
+        json_result "$CHECK_ID" "$TITLE" "PASS" "$SEVERITY" "NTP Synced" "$EXPECTED" "" "$SECTION"
+        return 0
     fi
-
-    json_result "$CHECK_ID" "$TITLE" "MANUAL" "$SEVERITY" "$current_val" "$EXPECTED" "$REMEDIATION" "$SECTION"
+    
+    json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "NTP Not Synced" "$EXPECTED" "Install and enable chrony" "$SECTION"
+    return 1
 }
 
 harden_1_6() {
-    log_warn "Manual Check: Install chrony or ntp and start the service."
+    echo "Installing chrony for time synchronization..."
+    sudo apt-get update -y > /dev/null
+    sudo apt-get install chrony -y
+    
+    echo "Enabling and starting chrony service..."
+    sudo systemctl enable --now chrony
+    
+    # Force systemd to recognize NTP
+    sudo timedatectl set-ntp true
 }
 
 verify_1_6() {
-    audit_1_6
+    if ! audit_1_6 > /dev/null 2>&1; then
+        harden_1_6
+        audit_1_6
+    else
+        audit_1_6
+    fi
 }
