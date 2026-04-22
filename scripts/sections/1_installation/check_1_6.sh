@@ -22,11 +22,9 @@ audit_1_6() {
 }
 
 harden_1_6() {
-    echo "Installing chrony for time synchronization..."
     sudo apt-get update -y > /dev/null
     sudo apt-get install chrony -y
     
-    echo "Enabling and starting chrony service..."
     sudo systemctl enable --now chrony
     
     # Force systemd to recognize NTP
