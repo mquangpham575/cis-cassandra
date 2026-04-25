@@ -8,49 +8,47 @@
 # Cassandra is installed via the official Apache apt repo so version is fixed.
 # ---------------------------------------------------------------------------
 locals {
-  raw_cloud_init = <<-CLOUDINIT
+  # Common packages for all nodes
+  base_packages = ["apt-transport-https", "gnupg", "curl", "python3.10", "python3-pip", "openjdk-11-jdk"]
+
+  # ---- Master Node Init (Management Tools Only) ----
+  raw_master_init = <<-CLOUDINIT
     #cloud-config
     package_update: true
-    package_upgrade: false
-
-    packages:
-      - apt-transport-https
-      - gnupg
-      - curl
-      - python3.10
-      - python3-pip
-      - openjdk-11-jdk
-
+    packages: ${jsonencode(local.base_packages)}
     runcmd:
-      # ---- Cassandra 4.0 apt repo ----
+      - echo "Master node ready for DevSecOps tasks" > /etc/motd
+    final_message: "cis-master ready"
+  CLOUDINIT
+
+  # ---- DB Node Init (Cassandra 4.0) ----
+  raw_db_init = <<-CLOUDINIT
+    #cloud-config
+    package_update: true
+    packages: ${jsonencode(local.base_packages)}
+    runcmd:
       - curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /etc/apt/trusted.gpg.d/cassandra.gpg
       - echo "deb https://debian.cassandra.apache.org 40x main" > /etc/apt/sources.list.d/cassandra.sources.list
       - apt-get update -qq
       - apt-get install -y cassandra
-      # ---- Ensure Java 11 is the active JDK ----
       - update-alternatives --set java /usr/lib/jvm/java-11-openjdk-arm64/bin/java
-      # ---- Configure cassandra.yaml (Member 1 Automation) ----
       - sed -i "s/cluster_name: 'Test Cluster'/cluster_name: 'CIS Cassandra Cluster'/" /etc/cassandra/cassandra.yaml
       - sed -i 's/seeds: "127.0.0.1"/seeds: "10.0.1.11"/' /etc/cassandra/cassandra.yaml
       - sed -i "s/listen_address: localhost/listen_address: $(hostname -I | awk '{print $1}')/" /etc/cassandra/cassandra.yaml
       - sed -i "s/rpc_address: localhost/rpc_address: 0.0.0.0/" /etc/cassandra/cassandra.yaml
       - sed -i "s/endpoint_snitch: SimpleSnitch/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml
-      # ---- Enable and Start Cassandra ----
       - systemctl enable cassandra
       - systemctl start cassandra
-
-    final_message: "cis-cassandra node ready after $UPTIME seconds"
+    final_message: "cis-db-node ready"
   CLOUDINIT
 
-  cloud_init_script = base64encode(replace(local.raw_cloud_init, "\r\n", "\n"))
+  cloud_init_master = base64encode(replace(local.raw_master_init, "\r\n", "\n"))
+  cloud_init_db     = base64encode(replace(local.raw_db_init, "\r\n", "\n"))
 }
 
-# ---------------------------------------------------------------------------
-# Public IPs — one per node; allow SSH from the internet
-# Static allocation prevents the IP changing after a stop/start
-# ---------------------------------------------------------------------------
+# Public IPs — ONLY for the Master node due to subscription limits
 resource "azurerm_public_ip" "node" {
-  for_each = local.nodes
+  for_each = { for k, v in local.nodes : k => v if v.role == "master" }
 
   name                = "${var.project_name}-${each.key}-pip"
   resource_group_name = azurerm_resource_group.main.name
@@ -78,8 +76,9 @@ resource "azurerm_network_interface" "node" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.cassandra.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = each.value.ip   # 10.0.1.11 / .12 / .13
-    public_ip_address_id          = azurerm_public_ip.node[each.key].id
+    private_ip_address            = each.value.ip
+    # Only associate Public IP if it exists for this node
+    public_ip_address_id          = lookup(azurerm_public_ip.node, each.key, null) != null ? azurerm_public_ip.node[each.key].id : null
   }
 
   tags = {
@@ -134,12 +133,12 @@ resource "azurerm_linux_virtual_machine" "node" {
   source_image_reference {
     publisher = "Canonical"
     offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-arm64"
+    sku       = "22_04-lts"
     version   = "latest"
   }
 
-  # cloud-init: installs JDK 11, Python 3.10, Cassandra 4.0 on first boot
-  custom_data = local.cloud_init_script
+  # cloud-init selection based on role
+  custom_data = each.value.role == "master" ? local.cloud_init_master : local.cloud_init_db
 
   lifecycle {
     ignore_changes = [custom_data]
@@ -148,6 +147,7 @@ resource "azurerm_linux_virtual_machine" "node" {
   tags = {
     project = var.project_name
     node    = each.key
-    role    = each.value.is_seed ? "seed" : "non-seed"
+    role    = each.value.role
+    type    = each.value.is_seed ? "seed" : "standard"
   }
 }

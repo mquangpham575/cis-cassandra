@@ -12,6 +12,7 @@
 #   az storage container create -n tfstate --account-name <SA_NAME>
 # ---------------------------------------------------------------------------
 
+/*
 terraform {
   backend "azurerm" {
     resource_group_name  = "tfstate-rg"
@@ -20,6 +21,7 @@ terraform {
     key                  = "cis-cassandra/terraform.tfstate"
   }
 }
+*/
 
 # ---------------------------------------------------------------------------
 # Provider — pin to azurerm ~> 3.0 to avoid breaking changes from v4
@@ -40,11 +42,11 @@ terraform {
 
 provider "azurerm" {
   skip_provider_registration = true
-  features {}
-  # Credentials are picked up automatically from:
-  #   1. Azure CLI  (`az login`)
-  #   2. Environment variables: ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
-  #   3. Managed Identity (when running inside Azure)
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------

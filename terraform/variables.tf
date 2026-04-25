@@ -39,17 +39,18 @@ variable "allowed_ssh_ips" {
 # Derived locals — centralise names so every resource uses the same pattern
 # ---------------------------------------------------------------------------
 locals {
-  # One entry per Cassandra node; node1 is the seed node
+  # 1 Master (Management) and 3 Database nodes
   nodes = {
-    node1 = { ip = "10.0.1.11", index = 1, is_seed = true }
-    node2 = { ip = "10.0.1.12", index = 2, is_seed = false }
-    node3 = { ip = "10.0.1.13", index = 3, is_seed = false }
+    master = { ip = "10.0.1.10", role = "master", is_seed = false }
+    db1    = { ip = "10.0.1.11", role = "db",     is_seed = true }
+    db2    = { ip = "10.0.1.12", role = "db",     is_seed = false }
+    db3    = { ip = "10.0.1.13", role = "db",     is_seed = false }
   }
 
   # CIDR of the VNet — used as source in intra-cluster NSG rules
   vnet_cidr   = "10.0.0.0/16"
   subnet_cidr = "10.0.1.0/24"
 
-  # Seed node key for Grafana/Prometheus external exposure rule
-  seed_node_key = "node1"
+  # DB1 is the primary seed for the cluster
+  seed_node_key = "db1"
 }

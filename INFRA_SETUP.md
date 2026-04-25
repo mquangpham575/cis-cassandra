@@ -1,80 +1,60 @@
 # 🚀 Infrastructure Setup (Member 1)
 
-This document summarizes the final state of the 3-node Cassandra cluster after handling Azure Student Subscription policy restrictions and capacity issues.
+This document summarizes the final state of the 4-node Cassandra cluster after handling Azure Student Subscription quota restrictions and Southeast Asia capacity issues.
 
 ### 📍 Cluster Overview
 
-| Attribute            | Configuration                                 |
-| :------------------- | :-------------------------------------------- |
-| **Region**           | **Southeast Asia (Singapore)**                |
-| **VM Size**          | `Standard_B2ps_v2` (ARM64 — 2 vCPU / 4GB RAM) |
-| **Architecture**     | **ARM64 (aarch64)**                           |
-| **Operating System** | Ubuntu 22.04 LTS (Jammy)                      |
-| **Storage**          | 30 GB Standard SSD / node                     |
+| Attribute            | Configuration                                     |
+| :------------------- | :------------------------------------------------ |
+| **Region**           | **Southeast Asia (Singapore)**                    |
+| **VM Size**          | `Standard_B2als_v2` (AMD — 2 vCPU / 4GB RAM)      |
+| **Architecture**     | **x86_64 (Standard)**                             |
+| **Operating System** | Ubuntu 22.04 LTS (Jammy)                          |
+| **Total Cores**      | 8 Cores (Requires 8+ core subscription quota)     |
 
 ### 🛠️ Provisioned Resources
 
-| Node      | Role | Private IP  | Public IP      | SSH Command                                    |
-| :-------- | :--- | :---------- | :------------- | :--------------------------------------------- |
-| **node1** | Seed | `10.0.1.11` | `4.193.213.85` | `ssh -i ~/.ssh/cis_key cassandra@4.193.213.85` |
-| **node2** | Node | `10.0.1.12` | `4.193.208.18` | `ssh -i ~/.ssh/cis_key cassandra@4.193.208.18` |
-| **node3** | Node | `10.0.1.13` | `4.193.98.211` | `ssh -i ~/.ssh/cis_key cassandra@4.193.98.211` |
+| Node       | Role          | Private IP  | Public IP      | SSH Command                                     |
+| :--------- | :------------ | :---------- | :------------- | :---------------------------------------------- |
+| **master** | Jump/Orch     | `10.0.1.10` | `4.194.10.192` | `ssh -i ~/.ssh/cis_key cassandra@4.194.10.192`  |
+| **db1**    | Seed Node     | `10.0.1.11` | None (Private) | `ssh 10.0.1.11` (Jump from Master)              |
+| **db2**    | Data Node     | `10.0.1.12` | None (Private) | `ssh 10.0.1.12` (Jump from Master)              |
+| **db3**    | Data Node     | `10.0.1.13` | None (Private) | `ssh 10.0.1.13` (Jump from Master)              |
 
 ### 🔐 Access and Security
 
-- **SSH Access**: Restricted to current Member 1 IP (`14.187.93.155`). To update, modify `variables.tf` and run `terraform apply`.
-- **Authentication**: Key-based only (No passwords). Use the generated `cis_key` file.
-- **NSG Ports**:
-  - `22` (SSH) — Restricted to Member 1 IP.
-  - `7000-7001` (Internal Cluster) — Open within the VNet.
-  - `9042` (CQL Native Port) — Open within the VNet.
+- **Jump Host Model**: For security, only the **Master** node has a public IP. All database nodes are hidden in a private subnet.
+- **SSH Key Forwarding**: A private key has been pre-deployed to the Master node (`~/.ssh/id_rsa`) to allow seamless jumping to database nodes.
+- **Whitelisted Access**: SSH is restricted to approved IP ranges defined in `terraform.tfvars`.
 
-### ⚠️ Infrastructure Troubleshooting (Handled)
+### ⚠️ Infrastructure Troubleshooting (Final Resolution)
 
-- **SKU Availability**: Original `Standard_B2s` was out of capacity in Singapore. Switched to `B2ps_v2` (ARM64).
-- **Policy Restriction**: Student accounts are restricted from US/Hong Kong regions. Locked to `Southeast Asia`.
-- **ARM64 Compatibility**: Updated `vms.tf` with the correct `arm64` Ubuntu image and adjusted `cloud-init` for the `openjdk-arm64` path.
+- **Capacity Crisis**: 1-core VMs (`B1s`, `F1s`) were completely sold out in Southeast Asia.
+- **Quota Lock**: The default 6-core limit blocked a 4-node cluster (4x2=8). The project was migrated to an **8-core subscription** to allow `Standard_B2als_v2` instances.
+- **Architecture Shift**: Reverted from ARM64 to x86_64 for better compatibility with the available B-series AMD stock.
 
 ### 🏁 Team Hand-off & Connection Guide (Members 2 & 3)
 
-Follow these steps to connect to the infrastructure configured by Member 1.
-
-#### 1. Save and Secure the SSH Key
-
-Save the `cis_key` file provided by Member 1 (usually in `~/.ssh/`).
-On Windows, you **must** restrict file permissions or SSH will refuse to use it:
-
-```powershell
-# Run this in PowerShell where the cis_key is located:
-icacls .\cis_key /inheritance:r
-icacls .\cis_key /grant:r "$($env:USERNAME):(R)"
+#### 1. Connect to the Master Node
+Use the provided `cis_key` to connect to the management entry point:
+```bash
+ssh -i "~/.ssh/cis_key" cassandra@4.194.10.192
 ```
 
-#### 2. Update the Firewall
-
-The Azure Firewall (NSG) currently only allows Member 1's IP. To allow your own IP:
-
-1.  Check your current IP on `ifconfig.me`.
-2.  Ask Member 1 to add it to `variables.tf` in the `allowed_ssh_cidr` list.
-3.  Member 1 runs `terraform apply`.
-
-#### 3. Test the Connection
-
-Try logging into Node 1 (Seed):
-
+#### 2. Accessing Database Nodes
+Once inside the Master, you can access any database worker without further configuration:
 ```bash
-ssh -i "$HOME/.ssh/cis_key" cassandra@4.193.213.85
+# Example: Jump to the Seed node
+ssh 10.0.1.11
 ```
 
-Once logged in, verify Cassandra is present:
-
+#### 3. Security Audit Location
+The security tools and benchmarking scripts are pre-installed on the Master node:
 ```bash
-cassandra -v
-# (Optional) Start it manually to check status
-sudo systemctl start cassandra
-nodetool status
+cd /opt/cis/
+sudo ./cis-tool.sh audit all
 ```
 
 ---
 
-_Created by Infrastructure Assistant for DevSecOps Team Project._
+_Updated for 4-Node x86_64 Production Baseline._

@@ -88,7 +88,7 @@ case "${1:-}" in
         ;;
     cluster)
         action=${2:-verify}
-        workers=("10.0.1.12" "10.0.1.13")
+        workers=("10.0.1.11" "10.0.1.12" "10.0.1.13")
         
         echo -e "${CYAN}=========================================================${NC}"
         echo -e "${CYAN}STARTING CLUSTER-WIDE AUTO-HARDEN (${action^^})${NC}"

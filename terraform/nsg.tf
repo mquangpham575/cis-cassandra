@@ -6,11 +6,7 @@
 #   200  Cassandra native transport (9042)     — intra-VNet only
 #   210  Cassandra inter-node gossip (7000)    — intra-VNet only
 #   220  Cassandra JMX (7199)                  — intra-VNet only
-#   230  JMX Exporter / Prometheus scrape (9404) — intra-VNet only
-#   240  Grafana (3000) intra-VNet             — intra-VNet only
-#   250  Prometheus (9090) intra-VNet          — intra-VNet only
-#   300  Grafana (3000) external on node1      — internet → node1 PIP only
-#   310  Prometheus (9090) external on node1   — internet → node1 PIP only
+#   260  ICMP (Ping)                           — intra-VNet only
 #  4096  Deny all inbound (explicit, belt-and-suspenders)
 #
 # NOTE: Rules 300/310 open Grafana & Prometheus from the internet to node1's
@@ -94,47 +90,6 @@ resource "azurerm_network_security_group" "cassandra" {
     description                = "Cassandra JMX — VNet only"
   }
 
-  # ---- JMX Exporter / Prometheus scrape (9404) ----------------------------
-  security_rule {
-    name                       = "allow-jmx-exporter"
-    priority                   = 230
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9404"
-    source_address_prefix      = local.vnet_cidr
-    destination_address_prefix = local.subnet_cidr
-    description                = "JMX Exporter (Prometheus metrics) — VNet only"
-  }
-
-  # ---- Grafana (3000) intra-VNet — all nodes ------------------------------
-  security_rule {
-    name                       = "allow-grafana-vnet"
-    priority                   = 240
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3000"
-    source_address_prefix      = local.vnet_cidr
-    destination_address_prefix = local.subnet_cidr
-    description                = "Grafana dashboard — intra-VNet access for all nodes"
-  }
-
-  # ---- Prometheus (9090) intra-VNet — all nodes ---------------------------
-  security_rule {
-    name                       = "allow-prometheus-vnet"
-    priority                   = 250
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9090"
-    source_address_prefix      = local.vnet_cidr
-    destination_address_prefix = local.subnet_cidr
-    description                = "Prometheus — intra-VNet access for all nodes"
-  }
 
   # ---- ICMP (Ping) intra-VNet — all nodes ---------------------------------
   security_rule {
@@ -150,36 +105,6 @@ resource "azurerm_network_security_group" "cassandra" {
     description                = "ICMP (Ping) — intra-VNet access for diagnostics"
   }
 
-  # ---- Grafana (3000) external — node1 (seed/monitoring node) only --------
-  # node1 hosts Grafana and is the only VM that should be internet-reachable
-  # on port 3000. The destination_address_prefix is set to the node1 PIP at
-  # plan time so traffic to node2/node3 PIPs is not allowed by this rule.
-  security_rule {
-    name                       = "allow-grafana-external-node1"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3000"
-    source_address_prefix      = "*"
-    destination_address_prefix = azurerm_public_ip.node[local.seed_node_key].ip_address
-    description                = "Grafana external access — node1 public IP only"
-  }
-
-  # ---- Prometheus (9090) external — node1 only ----------------------------
-  security_rule {
-    name                       = "allow-prometheus-external-node1"
-    priority                   = 310
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9090"
-    source_address_prefix      = "*"
-    destination_address_prefix = azurerm_public_ip.node[local.seed_node_key].ip_address
-    description                = "Prometheus external access — node1 public IP only"
-  }
 
   # ---- Explicit deny-all inbound (belt-and-suspenders) --------------------
   security_rule {

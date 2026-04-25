@@ -16,7 +16,7 @@ def run_az_cmd(vm_name, cmd):
     return subprocess.Popen(az_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
 
 def main():
-    nodes = ["cis-cassandra-node1", "cis-cassandra-node2", "cis-cassandra-node3"]
+    nodes = ["cis-cassandra-db1", "cis-cassandra-db2", "cis-cassandra-db3"]
     processes = []
     
     print("Initiating full hardening (all sections) on all nodes in parallel...")
