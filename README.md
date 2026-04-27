@@ -13,11 +13,12 @@ This platform provides an automated solution to **audit** and **harden** a 4-nod
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Cloud Infrastructure** | 4 × Azure Ubuntu 22.04 (x86_64) | 1 Master + 3 DB Nodes (`Standard_B2als_v2`) |
-| **Security Engineering** | Bash (`scripts/`) | Procedural CIS audit and automated remediation |
-| **Orchestration API** | FastAPI (Python 3.12) | SSH-based dispatching, SSE reports, and status management |
-| **Management Portal** | React 18 + Vite | Centralized compliance dashboard |
-| **CI/CD Pipeline** | GitHub Actions | Automated security gates (Static Analysis, Linting, Testing) |
+| **Cloud Infrastructure** | Ubuntu 22.04 LTS (Azure) | 1 Master (1GB) + 3 DB Nodes (4GB) |
+| **Database Engine** | Apache Cassandra 4.0.20 | Distributed NoSQL storage (Java 11) |
+| **Security Engineering** | Bash (`scripts/`) | CIS v1.3.0 audit and remediation logic |
+| **Orchestration API** | FastAPI (Python 3.10) | SSH dispatching and real-time SSE reporting |
+| **Management Portal** | React 18 + Vite | Centralized security dashboard |
+| **CI/CD Pipeline** | GitHub Actions | Automated security gates and linting |
 
 ---
 
@@ -101,8 +102,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 #### SSH Jump Access
 To access the database nodes, use the Master node as a jump host:
-1. **Connect to Master**: `ssh cassandra@<PUBLIC_IP>`
-2. **Jump to DB**: `ssh 10.0.1.11` (Key is pre-deployed on Master)
+1. **Connect to Master**: `ssh -i <key> cassandra@4.194.10.192`
+2. **Jump to DB**: `ssh 10.0.1.11` (or `.12`, `.13`)
+
+#### Quick Health Checks
+Once logged into a DB node, use these commands to verify status:
+*   **Service Status**: `sudo systemctl status cassandra`
+*   **Cluster Ring**: `nodetool status`
+*   **Stack Versions**: `java -version && cassandra -v`
 
 ---
 

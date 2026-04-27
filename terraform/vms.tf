@@ -27,18 +27,18 @@ locals {
     package_update: true
     packages: ${jsonencode(local.base_packages)}
     runcmd:
-      - curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /etc/apt/trusted.gpg.d/cassandra.gpg
-      - echo "deb https://debian.cassandra.apache.org 40x main" > /etc/apt/sources.list.d/cassandra.sources.list
-      - apt-get update -qq
-      - apt-get install -y cassandra
-      - update-alternatives --set java /usr/lib/jvm/java-11-openjdk-arm64/bin/java
-      - sed -i "s/cluster_name: 'Test Cluster'/cluster_name: 'CIS Cassandra Cluster'/" /etc/cassandra/cassandra.yaml
-      - sed -i 's/seeds: "127.0.0.1"/seeds: "10.0.1.11"/' /etc/cassandra/cassandra.yaml
-      - sed -i "s/listen_address: localhost/listen_address: $(hostname -I | awk '{print $1}')/" /etc/cassandra/cassandra.yaml
-      - sed -i "s/rpc_address: localhost/rpc_address: 0.0.0.0/" /etc/cassandra/cassandra.yaml
-      - sed -i "s/endpoint_snitch: SimpleSnitch/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml
-      - systemctl enable cassandra
-      - systemctl start cassandra
+      - [ bash, -c, 'curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg' ]
+      - [ bash, -c, 'echo "deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main" > /etc/apt/sources.list.d/cassandra.list' ]
+      - [ apt-get, update, -qq ]
+      - [ apt-get, install, -y, cassandra ]
+      - [ update-alternatives, --set, java, /usr/lib/jvm/java-11-openjdk-amd64/bin/java ]
+      - [ bash, -c, 'sed -i "s/seeds: .*/seeds: \"10.0.1.11\"/" /etc/cassandra/cassandra.yaml' ]
+      - [ bash, -c, "sed -i \"s/listen_address: localhost/listen_address: $(hostname -i)/\" /etc/cassandra/cassandra.yaml" ]
+      - [ bash, -c, "sed -i \"s/rpc_address: localhost/rpc_address: 0.0.0.0/\" /etc/cassandra/cassandra.yaml" ]
+      - [ bash, -c, "sed -i \"s/# broadcast_rpc_address: 1.2.3.4/broadcast_rpc_address: $(hostname -i)/\" /etc/cassandra/cassandra.yaml" ]
+      - [ bash, -c, 'sed -i "s/endpoint_snitch: .*/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml' ]
+      - [ systemctl, enable, cassandra ]
+      - [ systemctl, start, cassandra ]
     final_message: "cis-db-node ready"
   CLOUDINIT
 
@@ -107,7 +107,7 @@ resource "azurerm_linux_virtual_machine" "node" {
   name                = "${var.project_name}-${each.key}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  size                = var.vm_size
+  size                = (each.key == "master") ? "Standard_B2ats_v2" : var.vm_size
 
   # Admin account — password auth disabled, key-only
   admin_username                  = "cassandra"
@@ -139,10 +139,6 @@ resource "azurerm_linux_virtual_machine" "node" {
 
   # cloud-init selection based on role
   custom_data = each.value.role == "master" ? local.cloud_init_master : local.cloud_init_db
-
-  lifecycle {
-    ignore_changes = [custom_data]
-  }
 
   tags = {
     project = var.project_name

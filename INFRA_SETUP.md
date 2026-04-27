@@ -7,10 +7,11 @@ This document summarizes the final state of the 4-node Cassandra cluster after h
 | Attribute            | Configuration                                     |
 | :------------------- | :------------------------------------------------ |
 | **Region**           | **Southeast Asia (Singapore)**                    |
-| **VM Size**          | `Standard_B2als_v2` (AMD — 2 vCPU / 4GB RAM)      |
-| **Architecture**     | **x86_64 (Standard)**                             |
-| **Operating System** | Ubuntu 22.04 LTS (Jammy)                          |
-| **Total Cores**      | 8 Cores (Requires 8+ core subscription quota)     |
+| **VM Size (Master)** | `Standard_B2ats_v2` (1 vCPU / 1GB RAM) |
+| **VM Size (DB)**     | `Standard_B2als_v2` (2 vCPU / 4GB RAM) |
+| **Architecture**     | **x86_64 (AMD Standard)**              |
+| **Operating System** | Ubuntu 22.04 LTS (Jammy)               |
+| **Total Cores**      | 7 Cores (Master + 3xDB Nodes)          |
 
 ### 🛠️ Provisioned Resources
 
