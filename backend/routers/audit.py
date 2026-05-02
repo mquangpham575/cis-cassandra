@@ -18,36 +18,6 @@ router = APIRouter(prefix="/audit", tags=["Audit"])
 _audit_cache: dict[str, AuditReport] = {}
 
 
-@router.post("/{node_ip}", response_model=AuditReport)
-async def run_audit(
-    node_ip: str,
-    section: Optional[str] = Query(None, description="Filter theo section, vd: 'encryption'"),
-    _=Depends(verify_token),
-):
-    """
-    Chạy CIS audit trên 1 node.
-    Gọi cis-tool.sh --audit qua SSH, parse JSON, trả về AuditReport.
-    """
-    if node_ip not in settings.node_ips:
-        raise HTTPException(status_code=404, detail=f"Node {node_ip} not found")
-
-    try:
-        raw_json = await ssh_service.run_audit(node_ip, section=section)
-        report = parse_audit_output(raw_json, node_ip)
-
-        # Lưu cache
-        _audit_cache[node_ip] = report
-
-        return report
-
-    except ConnectionError:
-        raise HTTPException(status_code=503, detail=f"Cannot SSH to {node_ip}")
-    except TimeoutError:
-        raise HTTPException(status_code=504, detail=f"Audit timed out on {node_ip}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/all", response_model=list[AuditReport])
 async def run_audit_all(_=Depends(verify_token)):
     """
@@ -76,6 +46,36 @@ async def run_audit_all(_=Depends(verify_token)):
             reports.append(report)
 
     return reports
+
+
+@router.post("/{node_ip}", response_model=AuditReport)
+async def run_audit(
+    node_ip: str,
+    section: Optional[str] = Query(None, description="Filter theo section, vd: 'encryption'"),
+    _=Depends(verify_token),
+):
+    """
+    Chạy CIS audit trên 1 node.
+    Gọi cis-tool.sh --audit qua SSH, parse JSON, trả về AuditReport.
+    """
+    if node_ip not in settings.node_ips:
+        raise HTTPException(status_code=404, detail=f"Node {node_ip} not found")
+
+    try:
+        raw_json = await ssh_service.run_audit(node_ip, section=section)
+        report = parse_audit_output(raw_json, node_ip)
+
+        # Lưu cache
+        _audit_cache[node_ip] = report
+
+        return report
+
+    except ConnectionError:
+        raise HTTPException(status_code=503, detail=f"Cannot SSH to {node_ip}")
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail=f"Audit timed out on {node_ip}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{node_ip}/latest", response_model=Optional[AuditReport])

@@ -4,14 +4,14 @@ Frontend gọi endpoint này thay vì gọi trực tiếp Prometheus.
 """
 import httpx
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse
 
 from config import settings
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
 
-@router.get("/{node_ip}", response_class=PlainTextResponse)
+@router.get("/{node_ip}")
 async def get_node_metrics(node_ip: str):
     """
     Lấy Prometheus metrics của 1 node.
@@ -39,10 +39,7 @@ async def get_node_metrics(node_ip: str):
                     data = resp.json()
                     results[key] = data.get("data", {}).get("result", [])
 
-            return PlainTextResponse(
-                content=str(results),
-                media_type="application/json",
-            )
+            return JSONResponse(content=results)
 
     except httpx.ConnectError:
         raise HTTPException(
