@@ -15,9 +15,18 @@ class Settings(BaseSettings):
         validation_alias="NODE_IPS",
     )
 
+    ssh_port: int = Field(22, validation_alias="SSH_PORT")
+    ssh_timeout: int = Field(30, validation_alias="SSH_TIMEOUT")
+    cis_tool_path: str = Field("/opt/cis/cis-tool.sh", validation_alias="CIS_TOOL_PATH")
+    prometheus_url: str = Field("http://10.0.1.11:9090", validation_alias="PROMETHEUS_URL")
+    
+    api_host: str = Field("0.0.0.0", validation_alias="API_HOST")
+    api_port: int = Field(8000, validation_alias="API_PORT")
+    api_secret_key: str = Field("change-me-in-production", validation_alias="API_SECRET_KEY")
+    audit_cache_ttl: int = Field(300, validation_alias="AUDIT_CACHE_TTL")
+
     @property
     def node_ips(self) -> list[str]:
         return [ip.strip() for ip in self.node_ips_str.split(",") if ip.strip()]
-
 
 settings = Settings()

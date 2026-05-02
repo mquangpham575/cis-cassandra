@@ -16,3 +16,8 @@ dist/
 .terraform.lock.hcl
 *.tfvars
 *.tfvars.json
+
+# Python Environments
+venv/
+env/
+.venv/
