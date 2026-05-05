@@ -98,12 +98,21 @@ case "${1:-}" in
         # sudo "$0" "$action"
 
         for ip in "${workers[@]}"; do
-            echo -e "\n\e[33m[+] Syncing and executing on NODE: $ip...\e[0m"
+            echo -e "\n\e[33m[+] Orchestrating NODE: $ip...\e[0m"
             
+            # 1. Tạo thư mục và đồng bộ script mới nhất
             ssh cassandra@$ip "mkdir -p ~/cis-cassandra/scripts/"
-            
             rsync -az -e ssh "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
+            
+            # 2. Chạy kịch bản Harden (Sẽ dùng lệnh sed để sửa file tự động)
             ssh -t cassandra@$ip "sudo ~/cis-cassandra/scripts/cis-tool.sh $action"
+            
+            # 3. ÉP RESTART TỪ MASTER: Để mọi thay đổi về User (1.5) và Config có hiệu lực ngay
+            echo "Restarting service on $ip to apply changes..."
+            ssh -t cassandra@$ip "sudo systemctl restart cassandra"
+            
+            # 4. Đợi 15s cho node "tỉnh táo" trước khi sang node tiếp theo (Rolling Update)
+            sleep 15
         done
         
         echo -e "\n\e[32mSUCCESS: Cluster hardening completed successfully.\e[0m"
