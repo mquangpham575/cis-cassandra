@@ -25,11 +25,26 @@ audit_3_2() {
 }
 
 harden_3_2() {
-    log_info "Remediating 3.2: Changing default 'cassandra' password to 'UIT2026'..."
-    # Thực hiện lệnh Remediation theo tài liệu CIS [cite: 542-544]
-    # Thêm dấu '=' để đảm bảo đúng cú pháp CQL của Cassandra 4.0
-    cqlsh -u cassandra -p cassandra -e "ALTER ROLE cassandra WITH PASSWORD = 'UIT2026';"
-    log_ok "Default password for 'cassandra' role updated."
+    # Chỉ chạy trên node DB1 để tránh xung đột (data sẽ tự sync)
+    if [[ "$(hostname -I)" == *"10.0.1.11"* ]]; then
+        log_info "Remediating 3.2: Waiting for DB to start to change password..."
+        
+        # Vòng lặp đợi 60s (thử lại mỗi 5s) cho đến khi cqlsh kết nối được
+        local retry=0
+        while ! cqlsh -u cassandra -p cassandra -e "DESCRIBE KEYSPACES;" >/dev/null 2>&1; do
+            sleep 5
+            ((retry++))
+            if [ $retry -gt 12 ]; then
+                log_error "Timeout: Cassandra didn't start in time. Check logs."
+                return 1
+            fi
+        done
+
+        cqlsh -u cassandra -p cassandra -e "ALTER ROLE cassandra WITH PASSWORD = 'UIT2026';"
+        log_ok "3.2 Hardened: Default password changed successfully."
+    else
+        log_info "3.2: Skipping password change on this node (DB1 will handle it)."
+    fi
 }
 
 verify_3_2() {
