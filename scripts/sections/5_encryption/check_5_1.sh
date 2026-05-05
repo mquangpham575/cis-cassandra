@@ -1,18 +1,35 @@
 #!/usr/bin/env bash
+
 audit_5_1() {
-    # Kiểm tra config trong file cassandra.yaml [cite: 819-821]
-    local val=$(grep "^internode_encryption:" /etc/cassandra/cassandra.yaml | awk '{print $2}')
+    local CHECK_ID="5.1"
+    local TITLE="Inter-node Encryption (TLS)"
+    local SECTION="5 Encryption"
+    local EXPECTED="all or dc"
+    local REMEDIATION="Configure PKI and set internode_encryption to all."
+    local SEVERITY="HIGH"
+    
+    # Quét block server_encryption_options
+    local val=$(sed -n '/server_encryption_options:/,/^[^ ]/p' /etc/cassandra/cassandra.yaml | grep "internode_encryption:" | head -n 1 | awk '{print $2}')
+    
     if [[ "$val" == "all" || "$val" == "dc" ]]; then
-        json_result "5.1" "Inter-node Encryption" "PASS" "HIGH" "$val" "all/dc" "" "5 Encryption"
+        json_result "$CHECK_ID" "$TITLE" "PASS" "$SEVERITY" "internode_encryption: $val" "$EXPECTED" "$REMEDIATION" "$SECTION"
         return 0
+    else
+        json_result "$CHECK_ID" "$TITLE" "FAIL" "$SEVERITY" "internode_encryption: $val" "$EXPECTED" "$REMEDIATION" "$SECTION"
+        return 1
     fi
-    return 1
 }
+
 harden_5_1() {
-    # Xây dựng Keystore và bật encryption theo tài liệu [cite: 826-830]
-    sudo mkdir -p /etc/cassandra/certs
-    [ ! -f /etc/cassandra/certs/keystore.jks ] && sudo keytool -genkey -noprompt -keyalg RSA -alias cassandra -keystore /etc/cassandra/certs/keystore.jks -storepass cassandra -keypass cassandra -validity 360 -dname "CN=$(hostname)" > /dev/null 2>&1
-    sudo chown cassandra:cassandra /etc/cassandra/certs/keystore.jks
-    sudo sed -i 's/internode_encryption: none/internode_encryption: all/' /etc/cassandra/cassandra.yaml
+    # KHÔNG sửa file cassandra.yaml để tránh crash. Chỉ in ra cảnh báo yêu cầu làm tay.
+    echo -e "${YELLOW}[WARN] $(date -u +%Y-%m-%dT%H:%M:%SZ) - Manual action: 5.1 Internode TLS requires custom PKI/Truststore setup. Skipping auto-remediation to prevent cluster crash.${NC}"
 }
-verify_5_1() { if ! audit_5_1 >/dev/null 2>&1; then harden_5_1; audit_5_1; else audit_5_1; fi; }
+
+verify_5_1() { 
+    if ! audit_5_1 >/dev/null 2>&1; then 
+        harden_5_1
+        audit_5_1 
+    else 
+        audit_5_1 
+    fi 
+}
