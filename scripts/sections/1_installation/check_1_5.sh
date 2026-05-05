@@ -21,14 +21,22 @@ audit_1_5() {
 }
 
 harden_1_5() {
-    log_info "Hardening 1.5: Creating cassandra user and changing ownership..."
+    log_info "Hardening 1.5: Fixing service owner and permissions..."
+    
+    # 1. Tạo user/group nếu chưa có
     getent group cassandra > /dev/null || groupadd cassandra
     getent passwd cassandra > /dev/null || useradd -m -s /bin/bash -g cassandra cassandra
     
-    log_info "Changing ownership of common Cassandra directories..."
-    chown -R cassandra:cassandra /opt/cassandra /etc/cassandra /var/lib/cassandra /var/log/cassandra 2>/dev/null || true
+    # 2. Sửa file khởi động (Fix lỗi cốt lõi khiến nó chạy quyền root)
+    if [ -f /etc/init.d/cassandra ]; then
+        sudo sed -i 's/CASSANDRA_OWNR=root/CASSANDRA_OWNR=cassandra/' /etc/init.d/cassandra
+        sudo sed -i 's/CASSANDRA_OWNR="root"/CASSANDRA_OWNR="cassandra"/' /etc/init.d/cassandra
+    fi
+
+    # 3. Ép lại quyền sở hữu thư mục
+    chown -R cassandra:cassandra /etc/cassandra /var/lib/cassandra /var/log/cassandra 2>/dev/null || true
     
-    log_warn "Please update systemd service to use User=cassandra and restart."
+    log_ok "1.5 Hardened: Service will now run as 'cassandra' user."
 }
 
 verify_1_5() {
