@@ -86,7 +86,7 @@ case "${1:-}" in
         echo -e "${YELLOW}ACTION: Please perform a ROLLING RESTART to avoid downtime.${NC}"
         print_dashboard "$SCRIPT_DIR/reports/report.json" "$(hostname)"
         ;;
-    cluster)
+   cluster)
         action=${2:-verify}
         workers=("10.0.1.11" "10.0.1.12" "10.0.1.13")
         
@@ -94,11 +94,14 @@ case "${1:-}" in
         echo -e "${CYAN}STARTING CLUSTER-WIDE AUTO-HARDEN (${action^^})${NC}"
         echo -e "${CYAN}=========================================================${NC}"
 
-        echo -e "\n\e[33m[+] Executing on MASTER NODE...\e[0m"
-        sudo "$0" "$action"
+        # echo -e "\n\e[33m[+] Executing on MASTER NODE...\e[0m"
+        # sudo "$0" "$action"
 
         for ip in "${workers[@]}"; do
             echo -e "\n\e[33m[+] Syncing and executing on NODE: $ip...\e[0m"
+            
+            ssh cassandra@$ip "mkdir -p ~/cis-cassandra/scripts/"
+            
             rsync -az -e ssh "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
             ssh -t cassandra@$ip "sudo ~/cis-cassandra/scripts/cis-tool.sh $action"
         done
