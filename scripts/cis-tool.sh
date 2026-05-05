@@ -78,7 +78,10 @@ run_task() {
 
 # --- Main Dispatcher ---
 case "${1:-}" in
-    audit)  run_task "audit" "${2:-all}" ;;
+    audit)  
+        run_task "audit" "${2:-all}" 
+        print_dashboard "$SCRIPT_DIR/reports/report.json" "$(hostname)"
+        ;;
     harden) run_task "harden" "${2:-all}" ;;
     verify) 
         run_task "verify" "all" 
