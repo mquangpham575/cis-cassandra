@@ -35,20 +35,33 @@ jobs:
 
       - name: Syntax check all bash scripts
         run: |
-          for f in scripts/cis-tool.sh scripts/lib/*.sh scripts/cluster/*.sh scripts/tests/*.sh; do
+          shopt -s nullglob globstar
+          files=(scripts/*.sh scripts/lib/*.sh scripts/sections/**/*.sh)
+          for f in "${files[@]}"; do
             bash -n "$f" && echo "✅ syntax OK: $f"
           done
 
       - name: Shellcheck (warnings only, non-blocking)
         run: |
-          shellcheck --severity=error scripts/cis-tool.sh scripts/lib/*.sh \
-            scripts/cluster/*.sh || true
+          shopt -s nullglob globstar
+          files=(scripts/*.sh scripts/lib/*.sh scripts/sections/**/*.sh)
+          if [ "${#files[@]}" -gt 0 ]; then
+            shellcheck --severity=error "${files[@]}" || true
+          fi
 
       - name: Run bash unit tests
         run: |
-          export CASSANDRA_YAML=/dev/null
-          export LOGBACK_XML=/dev/null
-          bash scripts/tests/test_audit.sh 2>&1
+          shopt -s nullglob globstar
+          tests=(scripts/tests/**/*.sh)
+          if [ "${#tests[@]}" -gt 0 ]; then
+            export CASSANDRA_YAML=/dev/null
+            export LOGBACK_XML=/dev/null
+            for test in "${tests[@]}"; do
+              bash "$test" 2>&1
+            done
+          else
+            echo "No bash unit tests found; skipping."
+          fi
 
   # ─────────────────────────────────────────────────────────────
   # Job 2 — Run Python/FastAPI tests

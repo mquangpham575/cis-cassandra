@@ -5,8 +5,8 @@ import logging
 from functools import partial
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
-from models import NodeStatus
 from services import ssh_runner
 from config import settings
 
@@ -14,13 +14,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cluster", tags=["cluster"])
 
 
-def _check_node(ip: str) -> NodeStatus:
+class ClusterNodeStatus(BaseModel):
+    ip: str
+    reachable: bool
+    cassandra_running: bool
+    latency_ms: float | None = None
+
+
+def _check_node(ip: str) -> ClusterNodeStatus:
     reachable, latency = ssh_runner.check_reachable(ip)
     cassandra_running = False
     if reachable:
         result = ssh_runner.run(ip, "systemctl is-active cassandra 2>/dev/null", timeout=10)
         cassandra_running = result.stdout.strip() == "active"
-    return NodeStatus(
+    return ClusterNodeStatus(
         ip=ip,
         reachable=reachable,
         cassandra_running=cassandra_running,
@@ -28,8 +35,8 @@ def _check_node(ip: str) -> NodeStatus:
     )
 
 
-@router.get("/status", response_model=list[NodeStatus])
-async def cluster_status() -> list[NodeStatus]:
+@router.get("/status", response_model=list[ClusterNodeStatus])
+async def cluster_status() -> list[ClusterNodeStatus]:
     """Get status of all cluster nodes concurrently."""
     loop = asyncio.get_running_loop()
     tasks = [

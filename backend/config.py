@@ -17,13 +17,15 @@ class Settings(BaseSettings):
 
     ssh_port: int = Field(22, validation_alias="SSH_PORT")
     ssh_timeout: int = Field(30, validation_alias="SSH_TIMEOUT")
-    cis_tool_path: str = Field("/opt/cis/cis-tool.sh", validation_alias="CIS_TOOL_PATH")
+    cis_tool_path: str = Field("/home/cassandra/cis-cassandra/scripts/cis-tool.sh", validation_alias="CIS_TOOL_PATH")
     prometheus_url: str = Field("http://10.0.1.11:9090", validation_alias="PROMETHEUS_URL")
 
     cassandra_contact_points_str: str = Field("", validation_alias="CASSANDRA_CONTACT_POINTS")
     cassandra_port: int = Field(9042, validation_alias="CASSANDRA_PORT")
     cassandra_username: str = Field("cassandra", validation_alias="CASSANDRA_USERNAME")
     cassandra_password: str = Field("cassandra", validation_alias="CASSANDRA_PASSWORD")
+    cassandra_admin_username: str = Field("cis_admin", validation_alias="CIS_ADMIN_USER")
+    cassandra_admin_password: str = Field("changeme", validation_alias="CIS_ADMIN_PASS")
     cassandra_keyspace: str = Field("cis_notes", validation_alias="CASSANDRA_KEYSPACE")
     
     api_host: str = Field("0.0.0.0", validation_alias="API_HOST")

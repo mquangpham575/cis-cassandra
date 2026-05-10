@@ -12,7 +12,7 @@ from services.parser import parse_audit_output
 from config import settings
 from routers._auth import verify_token
 
-router = APIRouter(prefix="/audit", tags=["Audit"])
+router = APIRouter(prefix="/api/audit", tags=["Audit"])
 
 # In-memory cache cho kết quả audit gần nhất
 _audit_cache: dict[str, AuditReport] = {}
@@ -91,7 +91,7 @@ async def get_latest_audit(node_ip: str):
     if not report:
         raise HTTPException(
             status_code=404,
-            detail=f"No audit results for {node_ip}. Run POST /audit/{node_ip} first."
+            detail=f"No audit results for {node_ip}. Run POST /api/audit/{node_ip} first."
         )
 
     return report

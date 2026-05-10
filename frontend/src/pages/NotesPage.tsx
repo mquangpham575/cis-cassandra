@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
 import { api } from '../api'
-import type { Note } from '../types'
 
 interface NoteSegment {
   id: string
@@ -28,7 +27,7 @@ export function NotesPage() {
     api.getNotes().then(serverNotes => {
       if (!mounted) return
       // Map server notes to local NoteCard shape
-      setNotes(serverNotes.map((n, i) => ({
+      setNotes(serverNotes.map(n => ({
         id: n.id,
         title: n.title,
         isEditing: false,

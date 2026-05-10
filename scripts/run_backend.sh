@@ -38,12 +38,15 @@ setup_venv() {
 run_backend() {
   # shellcheck disable=SC1091
   source "$VENV_DIR/bin/activate"
+  export CIS_SSH_KEY="${CIS_SSH_KEY:-/home/cassandra/.ssh/cis_key}"
+  export CIS_SSH_USER="${CIS_SSH_USER:-cassandra}"
+  export CIS_TOOL_PATH="${CIS_TOOL_PATH:-/home/cassandra/cis-cassandra/scripts/cis-tool.sh}"
   export PYTHONPATH="$BACKEND_DIR"
   export API_HOST="${API_HOST:-0.0.0.0}"
   export API_PORT="${API_PORT:-8000}"
   log "Starting FastAPI backend on ${API_HOST}:${API_PORT}"
   cd "$BACKEND_DIR"
-  exec uvicorn main:app --host "$API_HOST" --port "$API_PORT"
+  exec uvicorn main:app --host "$API_HOST" --port "$API_PORT" --ws wsproto
 }
 
 main() {

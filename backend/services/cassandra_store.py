@@ -34,39 +34,69 @@ class CassandraNoteStore:
         self._session = None
         self._ready = False
 
+    def _auth_candidates(self) -> list[tuple[str, str]]:
+        candidates: list[tuple[str, str]] = []
+        admin_user = settings.cassandra_admin_username.strip()
+        admin_pass = settings.cassandra_admin_password.strip()
+        if admin_user and admin_pass:
+            candidates.append((admin_user, admin_pass))
+
+        if settings.cassandra_username.strip() and settings.cassandra_password.strip():
+            legacy = (settings.cassandra_username, settings.cassandra_password)
+            if legacy not in candidates:
+                candidates.append(legacy)
+        return candidates
+
     def _connect_sync(self) -> None:
         if self._ready and self._session is not None:
             return
 
-        auth_provider = PlainTextAuthProvider(
-            username=settings.cassandra_username,
-            password=settings.cassandra_password,
-        )
-        self._cluster = Cluster(
-            contact_points=settings.cassandra_contact_points,
-            port=settings.cassandra_port,
-            auth_provider=auth_provider,
-        )
-        self._session = self._cluster.connect()
-        self._session.execute(
-            "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3}"
-            % settings.cassandra_keyspace
-        )
-        self._session.set_keyspace(settings.cassandra_keyspace)
-        self._session.execute(
-            """
-            CREATE TABLE IF NOT EXISTS notes (
-                id text PRIMARY KEY,
-                title text,
-                segments_json text,
-                node text,
-                created_at text,
-                updated_at text
-            )
-            """
-        )
-        self._ready = True
-        logger.info("Cassandra notes store ready on %s", ", ".join(settings.cassandra_contact_points))
+        last_error: Exception | None = None
+        for username, password in self._auth_candidates():
+            try:
+                auth_provider = PlainTextAuthProvider(username=username, password=password)
+                self._cluster = Cluster(
+                    contact_points=settings.cassandra_contact_points,
+                    port=settings.cassandra_port,
+                    auth_provider=auth_provider,
+                )
+                self._session = self._cluster.connect()
+                self._session.execute(
+                    "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3}"
+                    % settings.cassandra_keyspace
+                )
+                self._session.set_keyspace(settings.cassandra_keyspace)
+                self._session.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS notes (
+                        id text PRIMARY KEY,
+                        title text,
+                        segments_json text,
+                        node text,
+                        created_at text,
+                        updated_at text
+                    )
+                    """
+                )
+                self._ready = True
+                logger.info(
+                    "Cassandra notes store ready on %s using role %s",
+                    ", ".join(settings.cassandra_contact_points),
+                    username,
+                )
+                return
+            except Exception as exc:
+                last_error = exc
+                self._ready = False
+                self._session = None
+                if self._cluster is not None:
+                    try:
+                        self._cluster.shutdown()
+                    except Exception:
+                        pass
+                    self._cluster = None
+
+        raise ConnectionError(f"Cassandra notes store unavailable: {last_error}")
 
     async def ensure_ready(self) -> None:
         await asyncio.to_thread(self._connect_sync)
@@ -117,7 +147,12 @@ class CassandraNoteStore:
         ]
 
     async def list_notes(self) -> list[Note]:
-        return await asyncio.to_thread(self._list_notes_sync)
+        try:
+            return await asyncio.to_thread(self._list_notes_sync)
+        except ConnectionError:
+            raise
+        except Exception as exc:
+            raise ConnectionError(f"Cannot read notes from Cassandra: {exc}") from exc
 
     def _upsert_note_sync(self, note: Note) -> Note:
         self._connect_sync()
@@ -132,7 +167,12 @@ class CassandraNoteStore:
         return note
 
     async def upsert_note(self, note: Note) -> Note:
-        return await asyncio.to_thread(self._upsert_note_sync, note)
+        try:
+            return await asyncio.to_thread(self._upsert_note_sync, note)
+        except ConnectionError:
+            raise
+        except Exception as exc:
+            raise ConnectionError(f"Cannot write note to Cassandra: {exc}") from exc
 
     def _delete_note_sync(self, note_id: str) -> bool:
         self._connect_sync()
@@ -143,7 +183,12 @@ class CassandraNoteStore:
         return True
 
     async def delete_note(self, note_id: str) -> bool:
-        return await asyncio.to_thread(self._delete_note_sync, note_id)
+        try:
+            return await asyncio.to_thread(self._delete_note_sync, note_id)
+        except ConnectionError:
+            raise
+        except Exception as exc:
+            raise ConnectionError(f"Cannot delete note from Cassandra: {exc}") from exc
 
     async def seed_demo_notes_if_empty(self) -> None:
         notes = await self.list_notes()

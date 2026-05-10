@@ -26,6 +26,51 @@ locals {
     #cloud-config
     package_update: true
     packages: ${jsonencode(local.base_packages)}
+    write_files:
+      - path: /usr/local/bin/cassandra-bootstrap-auth.sh
+        permissions: "0755"
+        owner: root:root
+        content: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [[ "$(hostname -I)" != *"${local.nodes[local.seed_node_key].ip}"* ]]; then
+            exit 0
+          fi
+
+          export CQLSH_PYTHON=/usr/bin/python3
+          default_user="cassandra"
+          default_pass="cassandra"
+          admin_user="cis_admin"
+          admin_pass="changeme"
+
+          for attempt in $(seq 1 60); do
+            if cqlsh -u "$default_user" -p "$default_pass" --connect-timeout=5 --request-timeout=10 -e "DESC KEYSPACES;" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 5
+          done
+
+          cqlsh -u "$default_user" -p "$default_pass" --connect-timeout=5 --request-timeout=10 -e "CREATE ROLE IF NOT EXISTS $admin_user WITH PASSWORD = '$admin_pass' AND LOGIN = true AND SUPERUSER = true;"
+          cqlsh -u "$default_user" -p "$default_pass" --connect-timeout=5 --request-timeout=10 -e "ALTER ROLE $default_user WITH PASSWORD = '$default_pass';"
+          nodetool repair system_auth >/var/log/cassandra-auth-bootstrap.log 2>&1 || true
+
+      - path: /etc/systemd/system/cassandra-bootstrap-auth.service
+        permissions: "0644"
+        owner: root:root
+        content: |
+          [Unit]
+          Description=Bootstrap Cassandra auth roles
+          After=cassandra.service
+          Requires=cassandra.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/cassandra-bootstrap-auth.sh
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
     runcmd:
       - [ bash, -c, 'curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg' ]
       - [ bash, -c, 'echo "deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main" > /etc/apt/sources.list.d/cassandra.list' ]
@@ -37,8 +82,12 @@ locals {
       - [ bash, -c, "sed -i \"s/rpc_address: localhost/rpc_address: 0.0.0.0/\" /etc/cassandra/cassandra.yaml" ]
       - [ bash, -c, "sed -i \"s/# broadcast_rpc_address: 1.2.3.4/broadcast_rpc_address: $(hostname -i)/\" /etc/cassandra/cassandra.yaml" ]
       - [ bash, -c, 'sed -i "s/endpoint_snitch: .*/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml' ]
+      - [ bash, -lc, 'yaml=/etc/cassandra/cassandra.yaml; sed -i "s/^authenticator:.*/authenticator: PasswordAuthenticator/" "$yaml"; sed -i "s/^authorizer:.*/authorizer: CassandraAuthorizer/" "$yaml"; if grep -q "^# network_authorizer:" "$yaml"; then sed -i "s/^# network_authorizer:.*/network_authorizer: CassandraNetworkAuthorizer/" "$yaml"; elif grep -q "^network_authorizer:" "$yaml"; then sed -i "s/^network_authorizer:.*/network_authorizer: CassandraNetworkAuthorizer/" "$yaml"; else printf "\nnetwork_authorizer: CassandraNetworkAuthorizer\n" >> "$yaml"; fi' ]
+      - [ bash, -c, 'echo "cassandra ALL=(root) NOPASSWD: /home/cassandra/cis-cassandra/scripts/cis-tool.sh, /bin/systemctl" > /etc/sudoers.d/cassandra-cis && chmod 440 /etc/sudoers.d/cassandra-cis' ]
       - [ systemctl, enable, cassandra ]
       - [ systemctl, start, cassandra ]
+      - [ systemctl, daemon-reload ]
+      - [ systemctl, enable, --now, cassandra-bootstrap-auth.service ]
     final_message: "cis-db-node ready"
   CLOUDINIT
 
@@ -53,8 +102,8 @@ resource "azurerm_public_ip" "node" {
   name                = "${var.project_name}-${each.key}-pip"
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  allocation_method    = "Static"
-  sku                  = "Standard"
+  allocation_method   = "Static"
+  sku                 = "Standard"
 
   tags = {
     project = var.project_name
@@ -78,7 +127,7 @@ resource "azurerm_network_interface" "node" {
     private_ip_address_allocation = "Static"
     private_ip_address            = each.value.ip
     # Only associate Public IP if it exists for this node
-    public_ip_address_id          = lookup(azurerm_public_ip.node, each.key, null) != null ? azurerm_public_ip.node[each.key].id : null
+    public_ip_address_id = lookup(azurerm_public_ip.node, each.key, null) != null ? azurerm_public_ip.node[each.key].id : null
   }
 
   tags = {

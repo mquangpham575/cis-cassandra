@@ -100,6 +100,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 # Documentation: http://4.194.10.192:8000/docs
 ```
 
+#### Frontend Dev Server
+```bash
+cd scripts
+sudo bash run_frontend.sh
+# Open: http://<master-public-ip>:5173
+```
+
+If you cannot open the frontend from your laptop, check that your public IP is included in `allowed_ssh_ips` and that Azure NSG allows TCP 5173 to the master subnet.
+
 #### SSH Jump Access
 To access the database nodes, use the Master node as a jump host:
 1. **Connect to Master**: `ssh -i <key> cassandra@4.194.10.192`

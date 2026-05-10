@@ -10,7 +10,7 @@ from models import AuditReport, AuditScore, CheckResult
 
 logger = logging.getLogger(__name__)
 
-CIS_TOOL_PATH = "/opt/cis/cis-tool.sh"
+CIS_TOOL_PATH = "/home/cassandra/cis-cassandra/scripts/cis-tool.sh"
 
 _SAFE_SECTION = re.compile(r'^[a-zA-Z0-9._-]{1,64}$')
 

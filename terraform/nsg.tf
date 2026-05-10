@@ -41,6 +41,19 @@ resource "azurerm_network_security_group" "master" {
   }
 
   security_rule {
+    name                       = "allow-vite-dev-server"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5173"
+    source_address_prefixes    = var.allowed_ssh_ips
+    destination_address_prefix = "*"
+    description                = "Vite dev server access for the master node"
+  }
+
+  security_rule {
     name                       = "allow-cassandra-native"
     priority                   = 200
     direction                  = "Inbound"

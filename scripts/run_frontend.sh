@@ -42,6 +42,7 @@ install_node_deps() {
 run_frontend() {
   cd "$FRONTEND_DIR"
   export VITE_API_URL="${VITE_API_URL:-http://127.0.0.1:8000}"
+  export VITE_API_SECRET_KEY="${VITE_API_SECRET_KEY:-change-me-in-production}"
   log "Starting Vite dev server with API proxy target ${VITE_API_URL}"
   exec npm run dev -- --host 0.0.0.0
 }

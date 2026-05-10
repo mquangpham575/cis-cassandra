@@ -7,7 +7,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import audit, remediate, nodes, metrics, report, notes
+from routers import audit, remediate, nodes, metrics, report, notes, cluster
 from websockets.audit_ws import audit_websocket_handler
 from services.ssh import ssh_service
 from services.cassandra_store import notes_store
@@ -23,13 +23,19 @@ async def lifespan(app: FastAPI):
     """Startup & shutdown events."""
     logger.info("Backend API starting up...")
     logger.info(f"Cassandra nodes: {settings.node_ips}")
-    await notes_store.ensure_ready()
-    await notes_store.seed_demo_notes_if_empty()
+    try:
+        await notes_store.ensure_ready()
+        await notes_store.seed_demo_notes_if_empty()
+    except Exception as exc:
+        logger.warning("Notes store unavailable at startup: %s", exc)
     yield
     # Shutdown: đóng SSH connections
     logger.info("Shutting down, closing SSH connections...")
     await ssh_service.close_all()
-    await notes_store.close()
+    try:
+        await notes_store.close()
+    except Exception as exc:
+        logger.warning("Error closing notes store: %s", exc)
 
 app = FastAPI(
     title="CIS Cassandra Compliance Dashboard",
@@ -53,6 +59,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(nodes.router)
+app.include_router(cluster.router)
 app.include_router(audit.router)
 app.include_router(remediate.router)
 app.include_router(metrics.router)

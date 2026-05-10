@@ -10,13 +10,13 @@ export type StreamState =
 
 export function useAuditStream() {
   const [state, setState] = useState<StreamState>({ status: 'idle' })
-  const esRef = useRef<EventSource | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
 
-  // C1: Close EventSource on unmount to prevent resource leaks
+  // Close WebSocket on unmount to prevent resource leaks.
   useEffect(() => {
     return () => {
-      esRef.current?.close()
-      esRef.current = null
+      wsRef.current?.close()
+      wsRef.current = null
     }
   }, [])
 
@@ -25,58 +25,68 @@ export function useAuditStream() {
     section = 'all',
     onLine?: (raw: string) => void,   // optional per-line callback for live terminal
   ) => {
-    esRef.current?.close()
-    esRef.current = null
+    wsRef.current?.close()
+    wsRef.current = null
     setState({ status: 'streaming', node: nodeIp })
 
-    const es = new EventSource(api.auditStreamUrl(nodeIp, section))
-    esRef.current = es
+    const ws = new WebSocket(api.auditStreamUrl(nodeIp, section))
+    wsRef.current = ws
 
-    es.onmessage = (ev: MessageEvent) => {
+    ws.onmessage = (ev: MessageEvent) => {
+      if (typeof ev.data !== 'string') return
+
       // Emit raw text line to caller before parsing (powers Audit Live terminal)
-      if (onLine && typeof ev.data === 'string') onLine(ev.data)
+      if (onLine) onLine(ev.data)
 
       try {
-        const payload = JSON.parse(ev.data as string) as Record<string, unknown>
-        if (payload.status === 'done') {
-          es.close()
-          esRef.current = null
+        const payload = JSON.parse(ev.data) as Record<string, unknown>
+
+        if (payload.type === 'complete' && payload.summary) {
+          const summary = payload.summary as Record<string, unknown>
+          setState({
+            status: 'done',
+            report: {
+              node: nodeIp,
+              timestamp: new Date().toISOString(),
+              score: {
+                total: Number(summary.total ?? 0),
+                automated: 0,
+                manual: Number(summary.manual ?? 0),
+                passed: Number(summary.passed ?? 0),
+                failed: Number(summary.failed ?? 0),
+                needs_review: 0,
+                compliance_pct: Number(summary.score ?? 0),
+              },
+              checks: [],
+            } as AuditReport,
+          })
+          ws.close()
+          wsRef.current = null
           return
         }
-        if (payload.status === 'error') {
-          setState({ status: 'error', message: String(payload.detail ?? 'Unknown error') })
-          es.close()
-          esRef.current = null
+        if (payload.type === 'error') {
+          setState({ status: 'error', message: String(payload.message ?? 'Unknown error') })
+          ws.close()
+          wsRef.current = null
           return
-        }
-        // C2: Validate required fields before casting to AuditReport
-        if (
-          payload.node &&
-          payload.score &&
-          typeof (payload.score as Record<string, unknown>).total === 'number' &&
-          Array.isArray(payload.checks)
-        ) {
-          setState({ status: 'done', report: payload as unknown as AuditReport })
-          es.close()
-          esRef.current = null
         }
       } catch {
-        setState({ status: 'error', message: 'Failed to parse SSE payload' })
-        es.close()
-        esRef.current = null
+        setState({ status: 'error', message: 'Failed to parse WebSocket payload' })
+        ws.close()
+        wsRef.current = null
       }
     }
 
-    es.onerror = () => {
-      setState({ status: 'error', message: 'SSE connection lost' })
-      es.close()
-      esRef.current = null
+    ws.onerror = () => {
+      setState({ status: 'error', message: 'WebSocket connection lost' })
+      ws.close()
+      wsRef.current = null
     }
   }, [])
 
   const stop = useCallback(() => {
-    esRef.current?.close()
-    esRef.current = null
+    wsRef.current?.close()
+    wsRef.current = null
     setState({ status: 'idle' })
   }, [])
 
