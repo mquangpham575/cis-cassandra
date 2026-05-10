@@ -1,0 +1,17 @@
+# Copy this file to terraform.tfvars and fill in your real values.
+
+project_name        = "cis-test"
+resource_group_name = "cis-test-rg"
+location            = "Southeast Asia"
+vm_size             = "Standard_B2als_v2"
+
+# Run `terraform` from the terraform/ directory, so the repo-root SSH key is:
+# ../ssh/cis_key.pub
+ssh_public_key_path = "../ssh/cis_key.pub"
+
+# Terraform expects a real list here, not a comma-separated string.
+# Add your public IPs in CIDR form.
+allowed_ssh_ips = [
+  "104.28.159.46/32",
+  "222.254.147.51/32",
+]
