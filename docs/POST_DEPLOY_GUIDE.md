@@ -8,6 +8,7 @@ From your local machine, copy the private key to the master node. The master is 
 
 ```bash
 scp -i ssh/cis_key ssh/cis_key cassandra@20.214.152.93:/home/cassandra/.ssh/cis_key
+ssh -i ssh/cis_key cassandra@20.214.152.93
 ```
 
 On the master node, fix the permissions and create an SSH config so the key is used automatically for the DB nodes:
@@ -124,6 +125,21 @@ On the master, verify you can reach the DB nodes and that Cassandra is healthy:
 ssh db1
 nodetool status
 cqlsh -u cassandra -p cassandra 127.0.0.1 -e "DESC KEYSPACES;"
+```
+
+```bash
+sudo systemctl stop cassandra
+
+# Remove local Cassandra data so it forgets the old datacenter name
+sudo rm -rf /var/lib/cassandra/data/*
+sudo rm -rf /var/lib/cassandra/commitlog/*
+sudo rm -rf /var/lib/cassandra/saved_caches/*
+sudo rm -rf /var/lib/cassandra/hints/* 2>/dev/null || true
+
+sudo systemctl start cassandra
+sleep 20
+
+sudo tail -100 /var/log/cassandra/system.log
 ```
 
 Useful role checks:
