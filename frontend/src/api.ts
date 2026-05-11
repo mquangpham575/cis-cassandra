@@ -111,7 +111,7 @@ function aggregateClusterReports(reports: BackendAuditReport[]): ClusterAuditRep
 
 export const api = {
   clusterStatus: () => get<NodeStatus[]>('/api/cluster/status'),
-  auditCluster: async () => {
+  auditCluster: async (_section = 'all') => {
     const reports = await post<BackendAuditReport[]>('/api/audit/all', {})
     return aggregateClusterReports(reports)
   },

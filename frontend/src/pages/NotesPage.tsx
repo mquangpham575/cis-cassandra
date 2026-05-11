@@ -17,22 +17,33 @@ function createId(prefix: string, seed: number) {
   return `${prefix}-${seed}`
 }
 
+function createStarterNote(): NoteCard {
+  return {
+    id: createId('note', 1),
+    title: 'Cluster follow-up',
+    isEditing: false,
+    segments: [{ id: createId('segment', 1), text: '' }],
+  }
+}
+
 export function NotesPage() {
   const [noteSeed, setNoteSeed] = useState(1)
   const [segmentSeed, setSegmentSeed] = useState(1)
-  const [notes, setNotes] = useState<NoteCard[]>([])
+  const [notes, setNotes] = useState<NoteCard[]>(() => [createStarterNote()])
 
   useEffect(() => {
     let mounted = true
     api.getNotes().then(serverNotes => {
       if (!mounted) return
       // Map server notes to local NoteCard shape
-      setNotes(serverNotes.map(n => ({
-        id: n.id,
-        title: n.title,
-        isEditing: false,
-        segments: n.segments.map(s => ({ id: s.id, text: s.text })),
-      })))
+      if (serverNotes.length > 0) {
+        setNotes(serverNotes.map(n => ({
+          id: n.id,
+          title: n.title,
+          isEditing: false,
+          segments: n.segments.map(s => ({ id: s.id, text: s.text })),
+        })))
+      }
     }).catch(() => {
       // keep empty state on error
     })

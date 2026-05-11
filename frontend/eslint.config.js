@@ -47,6 +47,7 @@ export default [
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       ...security.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       // Downgrade noisy security rules to warn instead of error
       'security/detect-object-injection': 'warn',
       'security/detect-non-literal-fs-filename': 'warn',

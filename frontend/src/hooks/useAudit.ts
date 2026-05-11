@@ -11,10 +11,10 @@ export type AuditState =
 export function useAudit() {
   const [state, setState] = useState<AuditState>({ status: 'idle' })
 
-  const runAudit = useCallback(async () => {
+  const runAudit = useCallback(async (section = 'all') => {
     setState({ status: 'loading' })
     try {
-      const data = await api.auditCluster()
+      const data = await api.auditCluster(section)
       setState({ status: 'success', data })
     } catch (err) {
       setState({ status: 'error', message: String(err) })
