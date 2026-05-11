@@ -1,0 +1,23 @@
+[33mcommit 496093187cbcfd7b92e6667116c166f65bd996e0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnguyen-frontend-cicd-and-more[m[33m)[m
+Author: Ragingsnake <nhatnguyen2023dt@gmail.com>
+Date:   Sun May 10 22:26:40 2026 +0700
+
+    Moved the guide to folder root
+
+[33mcommit 4c2f884dacd80499ecae4ca58658584ea538f2d5[m[33m ([m[1;32mmain[m[33m)[m
+Author: Ragingsnake <nhatnguyen2023dt@gmail.com>
+Date:   Sun May 10 19:45:00 2026 +0700
+
+    Added a deployment guide on what to do after Terraforming as well as utility commands as well as useful fixes
+
+[33mcommit 59443aff613063f3f8c66d9bb00d5fcb24d1f204[m
+Author: Ragingsnake <nhatnguyen2023dt@gmail.com>
+Date:   Sun May 10 19:20:37 2026 +0700
+
+    Various fixes and changes to Frontend and Backend to make things work + A bit of an update on Terraform as well as Cassandra set-up
+
+[33mcommit 7ebf0726a1353defd4ea9cefbafd94b8553e9a55[m
+Author: Ragingsnake <nhatnguyen2023dt@gmail.com>
+Date:   Sun May 10 16:28:32 2026 +0700
+
+    initial commit

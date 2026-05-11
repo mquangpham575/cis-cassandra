@@ -48,7 +48,7 @@ resource "azurerm_network_security_group" "master" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "5173"
-    source_address_prefixes    = var.allowed_ssh_ips
+    source_address_prefix      = "*"
     destination_address_prefix = "*"
     description                = "Vite dev server access for the master node"
   }
