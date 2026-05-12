@@ -6,7 +6,7 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
 from services.ssh import ssh_service
-from services.parser import parse_single_check
+from services.parser import parse_audit_output
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -30,29 +30,17 @@ async def audit_websocket_handler(websocket: WebSocket, node_ip: str):
             "message": f"Starting audit on {node_ip}..."
         })
 
-        checks = []
-        check_count = 0
+        raw_output_lines = []
 
         async for line in ssh_service.stream_audit(node_ip):
-            check = parse_single_check(line, node_ip)
+            raw_output_lines.append(line)
+            await websocket.send_json({
+                "type": "log",
+                "message": line,
+            })
 
-            if check:
-                check_count += 1
-                checks.append(check)
-
-                await websocket.send_json({
-                    "type": "check",
-                    "index": check_count,
-                    "data": check.model_dump(mode="json"),
-                })
-            else:
-                await websocket.send_json({
-                    "type": "log",
-                    "message": line,
-                })
-
-        from models.audit import AuditReport
-        report = AuditReport.from_checks(node_ip, checks)
+        raw_output = "\n".join(raw_output_lines)
+        report = parse_audit_output(raw_output, node_ip)
 
         await websocket.send_json({
             "type": "complete",

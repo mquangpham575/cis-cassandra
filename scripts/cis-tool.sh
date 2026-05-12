@@ -69,9 +69,11 @@ run_task() {
 
     if [[ "$mode" == "verify" || "$mode" == "audit" ]]; then
         local REPORT_PATH="$SCRIPT_DIR/reports/report.json"
+        local CSV_PATH="$SCRIPT_DIR/reports/report.csv"
         mkdir -p "$SCRIPT_DIR/reports"
         build_report "$(hostname -I | awk '{print $1}')" "$TMPFILE" > "$REPORT_PATH"
-        chmod 666 "$REPORT_PATH"
+        build_csv_report "$TMPFILE" > "$CSV_PATH"
+        chmod 666 "$REPORT_PATH" "$CSV_PATH"
     fi
     rm -f "$TMPFILE"
 }

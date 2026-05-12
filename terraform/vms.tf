@@ -8,42 +8,13 @@
 # Cassandra is installed via the official Apache apt repo so version is fixed.
 # ---------------------------------------------------------------------------
 locals {
-  # Common packages for all nodes
-  base_packages = ["apt-transport-https", "gnupg", "curl", "python3.10", "python3-pip", "openjdk-11-jdk"]
+  # Shared baseline for all management
+  common_packages = ["apt-transport-https", "gnupg", "curl", "python3.10", "python3-pip"]
+  # Database specific dependencies
+  db_packages     = ["openjdk-11-jdk"]
 
-  # ---- Master Node Init (Management Tools Only) ----
-  raw_master_init = <<-CLOUDINIT
-    #cloud-config
-    package_update: true
-    packages: ${jsonencode(local.base_packages)}
-    runcmd:
-      - echo "Master node ready for DevSecOps tasks" > /etc/motd
-    final_message: "cis-master ready"
-  CLOUDINIT
-
-  # ---- DB Node Init (Cassandra 4.0) ----
-  raw_db_init = <<-CLOUDINIT
-    #cloud-config
-    package_update: true
-    packages: ${jsonencode(local.base_packages)}
-    runcmd:
-      - [ bash, -c, 'curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg' ]
-      - [ bash, -c, 'echo "deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main" > /etc/apt/sources.list.d/cassandra.list' ]
-      - [ apt-get, update, -qq ]
-      - [ apt-get, install, -y, cassandra ]
-      - [ update-alternatives, --set, java, /usr/lib/jvm/java-11-openjdk-amd64/bin/java ]
-      - [ bash, -c, 'sed -i "s/seeds: .*/seeds: \"10.0.1.11\"/" /etc/cassandra/cassandra.yaml' ]
-      - [ bash, -c, "sed -i \"s/listen_address: localhost/listen_address: $(hostname -i)/\" /etc/cassandra/cassandra.yaml" ]
-      - [ bash, -c, "sed -i \"s/rpc_address: localhost/rpc_address: 0.0.0.0/\" /etc/cassandra/cassandra.yaml" ]
-      - [ bash, -c, "sed -i \"s/# broadcast_rpc_address: 1.2.3.4/broadcast_rpc_address: $(hostname -i)/\" /etc/cassandra/cassandra.yaml" ]
-      - [ bash, -c, 'sed -i "s/endpoint_snitch: .*/endpoint_snitch: GossipingPropertyFileSnitch/" /etc/cassandra/cassandra.yaml' ]
-      - [ systemctl, enable, cassandra ]
-      - [ systemctl, start, cassandra ]
-    final_message: "cis-db-node ready"
-  CLOUDINIT
-
-  cloud_init_master = base64encode(replace(local.raw_master_init, "\r\n", "\n"))
-  cloud_init_db     = base64encode(replace(local.raw_db_init, "\r\n", "\n"))
+  # Identify the seed node IP dynamically from the nodes map
+  seed_node_ip = local.nodes[local.seed_node_key].ip
 }
 
 # Public IPs — ONLY for the Master node due to subscription limits
@@ -99,7 +70,6 @@ resource "azurerm_network_interface_security_group_association" "node" {
 
 # ---------------------------------------------------------------------------
 # Linux Virtual Machines — Ubuntu 22.04 LTS
-# Password auth is explicitly disabled; SSH key is the only access method.
 # ---------------------------------------------------------------------------
 resource "azurerm_linux_virtual_machine" "node" {
   for_each = local.nodes
@@ -107,9 +77,8 @@ resource "azurerm_linux_virtual_machine" "node" {
   name                = "${var.project_name}-${each.key}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  size                = (each.key == "master") ? "Standard_B2ats_v2" : var.vm_size
+  size                = (each.value.role == "master") ? var.master_vm_size : var.vm_size
 
-  # Admin account — password auth disabled, key-only
   admin_username                  = "cassandra"
   disable_password_authentication = true
 
@@ -118,10 +87,8 @@ resource "azurerm_linux_virtual_machine" "node" {
     public_key = file(var.ssh_public_key_path)
   }
 
-  # Attach the NIC with the static private IP
   network_interface_ids = [azurerm_network_interface.node[each.key].id]
 
-  # OS disk — standard SSD is sufficient for a dev cluster
   os_disk {
     name                 = "${var.project_name}-${each.key}-osdisk"
     caching              = "ReadWrite"
@@ -129,7 +96,6 @@ resource "azurerm_linux_virtual_machine" "node" {
     disk_size_gb         = 30
   }
 
-  # Ubuntu 22.04 LTS from Canonical
   source_image_reference {
     publisher = "Canonical"
     offer     = "0001-com-ubuntu-server-jammy"
@@ -137,8 +103,34 @@ resource "azurerm_linux_virtual_machine" "node" {
     version   = "latest"
   }
 
-  # cloud-init selection based on role
-  custom_data = each.value.role == "master" ? local.cloud_init_master : local.cloud_init_db
+  # DYNAMIC CLOUD-INIT: Injects the specific node's IP and the cluster seed IP
+  custom_data = base64encode(<<-CLOUDINIT
+    #cloud-config
+    package_update: true
+    packages: ${jsonencode(concat(local.common_packages, each.value.role == "db" ? local.db_packages : []))}
+    runcmd: ${jsonencode(
+      each.value.role == "master" ? [
+        ["bash", "-c", "echo 'Master node ready' > /etc/motd"]
+      ] : [
+        ["bash", "-c", "curl -s https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive-keyring.gpg"],
+        ["bash", "-c", "echo 'deb [signed-by=/usr/share/keyrings/cassandra-archive-keyring.gpg] https://debian.cassandra.apache.org 40x main' > /etc/apt/sources.list.d/cassandra.list"],
+        ["apt-get", "update", "-qq"],
+        ["apt-get", "install", "-y", "cassandra"],
+        ["systemctl", "stop", "cassandra"],
+        ["rm", "-rf", "/var/lib/cassandra/*"],
+        ["update-alternatives", "--set", "java", "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"],
+        ["bash", "-c", "sed -i 's/seeds: .*/seeds: \"${local.seed_node_ip}\"/' /etc/cassandra/cassandra.yaml"],
+        ["bash", "-c", "sed -i 's/listen_address: localhost/listen_address: ${each.value.ip}/' /etc/cassandra/cassandra.yaml"],
+        ["bash", "-c", "sed -i 's/rpc_address: localhost/rpc_address: 0.0.0.0/' /etc/cassandra/cassandra.yaml"],
+        ["bash", "-c", "sed -i 's/# broadcast_rpc_address: 1.2.3.4/broadcast_rpc_address: ${each.value.ip}/' /etc/cassandra/cassandra.yaml"],
+        ["bash", "-c", "sed -i 's/endpoint_snitch: .*/endpoint_snitch: GossipingPropertyFileSnitch/' /etc/cassandra/cassandra.yaml"],
+        ["systemctl", "enable", "cassandra"],
+        ["systemctl", "start", "cassandra"]
+      ]
+    )}
+    final_message: "cis-${each.value.role}-node ready"
+  CLOUDINIT
+  )
 
   tags = {
     project = var.project_name

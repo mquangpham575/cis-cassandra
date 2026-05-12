@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { DashboardPage } from './pages/DashboardPage'
+import { NotesPage } from './pages/NotesPage'
 import { CompliancePage } from './pages/CompliancePage'
 import { AuditLivePage } from './pages/AuditLivePage'
-import { MonitoringPage } from './pages/MonitoringPage'
 import type { Tab } from './types'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'compliance', label: 'Compliance', icon: '🔒' },
-  { id: 'audit-live', label: 'Audit Live', icon: '⚡' },
-  { id: 'monitoring', label: 'Monitoring', icon: '📊' },
+  { id: 'dashboard', label: 'Dashboard', icon: '' },
+  { id: 'notes', label: 'Notes', icon: '' },
+  { id: 'compliance', label: 'Compliance', icon: '' },
+  { id: 'audit-live', label: 'Audit Live', icon: '' },
 ]
 
 export default function App() {
@@ -60,9 +60,9 @@ export default function App() {
       {/* Page content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {tab === 'dashboard' && <DashboardPage />}
+        {tab === 'notes' && <NotesPage />}
         {tab === 'compliance' && <CompliancePage />}
         {tab === 'audit-live' && <AuditLivePage />}
-        {tab === 'monitoring' && <MonitoringPage />}
       </main>
     </div>
   )

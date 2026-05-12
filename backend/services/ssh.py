@@ -6,6 +6,7 @@ import asyncssh
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import AsyncGenerator, Optional
 import os
 
@@ -75,50 +76,58 @@ class SSHService:
         except asyncio.TimeoutError:
             raise TimeoutError(f"Command timed out on {node_ip}")
 
+    def _audit_report_path(self) -> str:
+        tool_path = Path(settings.cis_tool_path)
+        return str(tool_path.parent / "reports" / "report.json")
+
+    async def _read_audit_report(self, node_ip: str) -> str:
+        return await self.run_command(node_ip, f"cat {self._audit_report_path()}")
+
+    async def _run_audit_logs(self, node_ip: str, section: Optional[str] = None) -> str:
+        cmd = f"sudo -n {settings.cis_tool_path} audit"
+        if section:
+            cmd += f" {section}"
+        return await self.run_command(node_ip, cmd)
+
     async def run_audit(self, node_ip: str, section: Optional[str] = None) -> str:
         """
-        Chạy cis-tool.sh --audit trên node.
-        Trả về toàn bộ JSON output.
+        Chạy cis-tool.sh audit trên node và trả về JSON report được lưu trên VM.
         """
-        cmd = f"sudo {settings.cis_tool_path} --audit"
-        if section:
-            cmd += f" --section '{section}'"
-
-        return await self.run_command(node_ip, cmd)
+        await self._run_audit_logs(node_ip, section=section)
+        return await self._read_audit_report(node_ip)
 
     async def run_harden(self, node_ip: str, section: Optional[str] = None) -> str:
         """
-        Chạy cis-tool.sh --harden trên node.
+        Chạy cis-tool.sh harden trên node.
         Thực hiện remediation cho các FAIL checks.
         """
-        cmd = f"sudo {settings.cis_tool_path} --harden"
+        cmd = f"sudo -n {settings.cis_tool_path} harden"
         if section:
-            cmd += f" --section '{section}'"
+            cmd += f" {section}"
 
         return await self.run_command(node_ip, cmd)
 
     async def run_verify(self, node_ip: str) -> str:
         """
-        Chạy cis-tool.sh --verify trên node.
+        Chạy cis-tool.sh verify trên node.
         Kiểm tra lại sau khi harden.
         """
-        cmd = f"sudo {settings.cis_tool_path} --verify"
+        cmd = f"sudo -n {settings.cis_tool_path} verify"
         return await self.run_command(node_ip, cmd)
 
     async def stream_audit(self, node_ip: str) -> AsyncGenerator[str, None]:
         """
-        Stream output từng dòng khi chạy audit.
-        Dùng cho WebSocket endpoint — gửi real-time cho frontend.
+        Emit audit output lines after running the real audit command.
+        cis-tool.sh does not implement a true stream mode, so we
+        forward the final JSON report line after the dashboard text.
         """
-        conn = await self._get_connection(node_ip)
-        cmd = f"sudo {settings.cis_tool_path} --audit --stream"
-
         try:
-            async with conn.create_process(cmd) as proc:
-                async for line in proc.stdout:
-                    line = line.strip()
-                    if line:
-                        yield line
+            output = await self._run_audit_logs(node_ip)
+            for line in output.splitlines():
+                line = line.strip()
+                if line:
+                    yield line
+            yield await self._read_audit_report(node_ip)
         except Exception as e:
             logger.error(f"Stream audit failed on {node_ip}: {e}")
             yield json.dumps({"error": str(e)})

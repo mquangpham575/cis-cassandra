@@ -1,6 +1,6 @@
 export type CheckStatus = 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
 export type CheckType = 'automated' | 'manual'
-export type Tab = 'dashboard' | 'compliance' | 'audit-live' | 'monitoring'
+export type Tab = 'dashboard' | 'notes' | 'compliance' | 'audit-live'
 
 export interface CheckResult {
   id: string

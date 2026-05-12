@@ -22,6 +22,23 @@ This document summarizes the final state of the 4-node Cassandra cluster after h
 | **db2**    | Data Node     | `10.0.1.12` | None (Private) | `ssh 10.0.1.12` (Jump from Master)              |
 | **db3**    | Data Node     | `10.0.1.13` | None (Private) | `ssh 10.0.1.13` (Jump from Master)              |
 
+### ✅ Terraform Variable Format
+
+When Terraform prompts for `allowed_ssh_ips`, enter a real list, not a comma-separated string:
+
+```hcl
+allowed_ssh_ips = [
+	"104.28.159.46/32",
+	"222.254.147.51/32",
+]
+```
+
+If you run Terraform from the `terraform/` directory, the SSH public key path should point back to the repo root:
+
+```hcl
+ssh_public_key_path = "../ssh/cis_key.pub"
+```
+
 ### 🔐 Access and Security
 
 - **Jump Host Model**: For security, only the **Master** node has a public IP. All database nodes are hidden in a private subnet.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 audit_2_2() {
-    local CHECK_ID="2.1" # Theo PDF là 2.2
+    local CHECK_ID="2.2"
     local TITLE="Authorization enabled"
     local SECTION="2 Authentication and Authorization"
     local EXPECTED="CassandraAuthorizer"
@@ -14,6 +14,7 @@ audit_2_2() {
 }
 harden_2_2() {
     sed -i 's/^authorizer:.*/authorizer: CassandraAuthorizer/' /etc/cassandra/cassandra.yaml
-    log_info "2.2 Hardened: Set authorizer to CassandraAuthorizer"
+    systemctl restart cassandra
+    log_info "2.2 Hardened: Set authorizer to CassandraAuthorizer and restarted Cassandra"
 }
 verify_2_2() { audit_2_2; }
