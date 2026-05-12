@@ -35,20 +35,33 @@ jobs:
 
       - name: Syntax check all bash scripts
         run: |
-          for f in scripts/cis-tool.sh scripts/lib/*.sh scripts/cluster/*.sh scripts/tests/*.sh; do
+          shopt -s nullglob globstar
+          files=(scripts/*.sh scripts/lib/*.sh scripts/sections/**/*.sh)
+          for f in "${files[@]}"; do
             bash -n "$f" && echo "✅ syntax OK: $f"
           done
 
       - name: Shellcheck (warnings only, non-blocking)
         run: |
-          shellcheck --severity=error scripts/cis-tool.sh scripts/lib/*.sh \
-            scripts/cluster/*.sh || true
+          shopt -s nullglob globstar
+          files=(scripts/*.sh scripts/lib/*.sh scripts/sections/**/*.sh)
+          if [ "${#files[@]}" -gt 0 ]; then
+            shellcheck --severity=error "${files[@]}" || true
+          fi
 
       - name: Run bash unit tests
         run: |
-          export CASSANDRA_YAML=/dev/null
-          export LOGBACK_XML=/dev/null
-          bash scripts/tests/test_audit.sh 2>&1
+          shopt -s nullglob globstar
+          tests=(scripts/tests/**/*.sh)
+          if [ "${#tests[@]}" -gt 0 ]; then
+            export CASSANDRA_YAML=/dev/null
+            export LOGBACK_XML=/dev/null
+            for test in "${tests[@]}"; do
+              bash "$test" 2>&1
+            done
+          else
+            echo "No bash unit tests found; skipping."
+          fi
 
   # ─────────────────────────────────────────────────────────────
   # Job 2 — Run Python/FastAPI tests
@@ -149,7 +162,7 @@ jobs:
             --exclude backend/tests/ \
             --severity-level medium \
             --confidence-level medium \
-            -f txt || true
+            -f txt
 
       - name: Scan for hardcoded secrets
         run: |
@@ -174,7 +187,7 @@ jobs:
           scan-ref: "."
           severity: "CRITICAL,HIGH"
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
 
       - name: Run Trivy SARIF (upload to GitHub Security tab)
@@ -217,30 +230,21 @@ jobs:
           echo "=== CIS Security Gate ==="
           echo "Audit fixture: $FIXTURE"
           echo ""
-
+          
           # Count CRITICAL failures
           CRITICAL=$(jq '[.checks[] | select(.status=="FAIL" and .severity=="CRITICAL")] | length' "$FIXTURE")
           HIGH=$(jq '[.checks[] | select(.status=="FAIL" and .severity=="HIGH")] | length' "$FIXTURE")
           TOTAL_FAIL=$(jq '[.checks[] | select(.status=="FAIL")] | length' "$FIXTURE")
-          COMPLIANCE=$(jq '.score.compliance_pct' "$FIXTURE")
-
-          echo "📊 Compliance Score : ${COMPLIANCE}%"
+          
           echo "❌ Total FAIL       : ${TOTAL_FAIL}"
           echo "🔴 CRITICAL FAIL    : ${CRITICAL}"
           echo "🟠 HIGH FAIL        : ${HIGH}"
           echo ""
 
-          # Print CRITICAL failures
           if [ "$CRITICAL" -gt 0 ]; then
-            echo "=== CRITICAL Violations (blocking merge) ==="
-            jq -r '.checks[] | select(.status=="FAIL" and .severity=="CRITICAL") |
-              "  [\(.check_id)] \(.title)\n    Current : \(.current_value)\n    Expected: \(.expected_value)\n    Fix     : \(.remediation)\n"' "$FIXTURE"
-          fi
-
-          # Gate: fail if any CRITICAL
-          if [ "$CRITICAL" -gt 0 ]; then
-            echo "🚫 SECURITY GATE BLOCKED: $CRITICAL critical CIS violation(s) detected."
-            echo "   Run 'sudo bash scripts/cis-tool.sh --harden' on affected nodes to remediate."
+            echo "=== CRITICAL Violations ==="
+            jq -r '.checks[] | select(.status=="FAIL" and .severity=="CRITICAL") | "  [\(.check_id)] \(.title)"' "$FIXTURE"
+            echo "🚫 SECURITY GATE BLOCKED: $CRITICAL critical CIS violation(s) detected in base image."
             exit 1
           fi
 

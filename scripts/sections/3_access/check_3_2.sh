@@ -40,8 +40,8 @@ harden_3_2() {
             fi
         done
 
-        cqlsh -u cassandra -p cassandra -e "ALTER ROLE cassandra WITH PASSWORD = 'UIT2026';"
-        log_ok "3.2 Hardened: Default password changed successfully."
+        cqlsh -u cassandra -p cassandra -e "ALTER ROLE cassandra WITH PASSWORD = 'Cassandra@2026';"
+        log_ok "3.2 Hardened: Default password changed successfully to Cassandra@2026"
     else
         log_info "3.2: Skipping password change on this node (DB1 will handle it)."
     fi

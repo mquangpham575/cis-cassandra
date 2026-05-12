@@ -21,17 +21,38 @@ def parse_audit_output(raw_json: str, node_ip: str) -> AuditReport:
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON from {node_ip}: {e}")
-        return AuditReport(
-            node=node_ip,
-            total_checks=0,
-            passed=0,
-            failed=0,
-            manual=0,
-            errors=1,
-            score=0.0,
-            checks=[],
-        )
+        json_start = raw_json.rfind("\n{")
+        if json_start == -1 and raw_json.lstrip().startswith("{"):
+            json_start = raw_json.index("{") - 1
+
+        if json_start != -1:
+            candidate = raw_json[json_start + 1 :].strip() if raw_json[json_start] == "\n" else raw_json[json_start:].strip()
+            try:
+                data = json.loads(candidate)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON from {node_ip}: {e}")
+                return AuditReport(
+                    node=node_ip,
+                    total_checks=0,
+                    passed=0,
+                    failed=0,
+                    manual=0,
+                    errors=1,
+                    score=0.0,
+                    checks=[],
+                )
+        else:
+            logger.error(f"Invalid JSON from {node_ip}: {e}")
+            return AuditReport(
+                node=node_ip,
+                total_checks=0,
+                passed=0,
+                failed=0,
+                manual=0,
+                errors=1,
+                score=0.0,
+                checks=[],
+            )
 
     checks: List[CheckResult] = []
     raw_checks = data.get("checks", [])

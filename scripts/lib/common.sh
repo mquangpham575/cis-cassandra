@@ -25,11 +25,15 @@ check_root() {
 
 # Hàm xuất JSON cho Backend (Member 3)
 json_result() {
-  local id="$1" title="$2" status="$3" severity="$4" current="$5" expected="$6" remediation="$7" section="$8"
-  local node_ip=$(hostname -I | awk '{print $1}')
-  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  current=$(printf '%s' "$current" | head -3 | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r//g')
-  printf '{"check_id":"%s","title":"%s","status":"%s","severity":"%s","current_value":"%s","expected_value":"%s","remediation":"%s","section":"%s","node":"%s","timestamp":"%s"}\n' "$id" "$title" "$status" "$severity" "$current" "$expected" "$remediation" "$section" "$node_ip" "$timestamp"
+  local check_id="$1" title="$2" status="$3" severity="$4" current_val="$5" expected_val="$6" remediation="$7" section="$8"
+  
+  # Strip ANSI color codes for JSON output to prevent dashboard parsing errors
+  local clean_val=$(echo "$current_val" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r//g')
+  local clean_exp=$(echo "$expected_val" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r//g')
+  local clean_rem=$(echo "$remediation" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r//g')
+
+  printf '{"check_id":"%s","title":"%s","status":"%s","severity":"%s","current_value":"%s","expected_value":"%s","remediation":"%s","section":"%s","node":"%s","timestamp":"%s"}\n' \
+    "$check_id" "$title" "$status" "$severity" "$clean_val" "$clean_exp" "$clean_rem" "$section" "$(hostname -I | awk '{print $1}')" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 }
 
 # Các hàm thao tác với Cassandra
@@ -66,4 +70,25 @@ build_report() {
     if $first; then printf '    %s' "$line"; first=false; else printf ',\n    %s' "$line"; fi
   done < "$checks_file"
   printf '\n  ]\n}\n'
+}
+
+# Hàm gom Report CSV
+build_csv_report() {
+  local checks_file="$1"
+  echo "Check ID,Section,Title,Status,Severity,Current Value,Expected Value,Node,Timestamp"
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    # Extract values using sed (simpler for raw CSV generation)
+    local id=$(echo "$line" | sed -n 's/.*"check_id":"\([^"]*\)".*/\1/p')
+    local section=$(echo "$line" | sed -n 's/.*"section":"\([^"]*\)".*/\1/p')
+    local title=$(echo "$line" | sed -n 's/.*"title":"\([^"]*\)".*/\1/p')
+    local status=$(echo "$line" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
+    local severity=$(echo "$line" | sed -n 's/.*"severity":"\([^"]*\)".*/\1/p')
+    local current=$(echo "$line" | sed -n 's/.*"current_value":"\([^"]*\)".*/\1/p')
+    local expected=$(echo "$line" | sed -n 's/.*"expected_value":"\([^"]*\)".*/\1/p')
+    local node=$(echo "$line" | sed -n 's/.*"node":"\([^"]*\)".*/\1/p')
+    local ts=$(echo "$line" | sed -n 's/.*"timestamp":"\([^"]*\)".*/\1/p')
+    
+    printf '"%s","%s","%s","%s","%s","%s","%s","%s","%s"\n' "$id" "$section" "$title" "$status" "$severity" "$current" "$expected" "$node" "$ts"
+  done < "$checks_file"
 }

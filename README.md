@@ -82,6 +82,9 @@ The system supports granular or full-cluster security enforcement according to C
 # Execute full security audit
 sudo bash scripts/cis-tool.sh audit all
 
+# Export results to CSV for auditing
+cat scripts/reports/report.csv
+
 # Apply automated remediation (Hardening)
 sudo bash scripts/cis-tool.sh harden all
 
@@ -99,6 +102,15 @@ cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000
 # Documentation: http://4.194.10.192:8000/docs
 ```
+
+#### Frontend Dev Server
+```bash
+cd scripts
+sudo bash run_frontend.sh
+# Open: http://<master-public-ip>:5173
+```
+
+If you cannot open the frontend from your laptop, check that your public IP is included in `allowed_ssh_ips` and that Azure NSG allows TCP 5173 to the master subnet.
 
 #### SSH Jump Access
 To access the database nodes, use the Master node as a jump host:
@@ -124,6 +136,16 @@ The GitHub Actions workflow enforces a **Security-First** release policy on ever
     - **Frontend**: 27 test cases (Vitest).
     - **Bash**: 31 assertions (BATS-compliant).
 4.  **Security Gate**: The pipeline **blocks merges** if any **CRITICAL** CIS violations are detected in the audit baseline.
+
+### 📈 Current Compliance Posture (v1.3.0)
+| Node | Pass | Fail | Manual | Status |
+|---|---|---|---|---|
+| **DB-Node-1** | 12 | 11 | 4 | 🔴 NON-COMPLIANT |
+| **DB-Node-2** | 10 | 12 | 5 | 🔴 NON-COMPLIANT |
+| **DB-Node-3** | 12 | 11 | 4 | 🔴 NON-COMPLIANT |
+
+> [!WARNING]
+> **Critical Failures**: Authentication and Authorization are currently disabled in the baseline image. Run `cis-tool.sh harden 2` to remediate.
 
 ---
 

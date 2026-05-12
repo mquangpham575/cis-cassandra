@@ -1,5 +1,6 @@
 from .audit import CheckResult, AuditReport
 from .node import NodeInfo, NodeStatus, ComplianceReport
+from .note import Note, NoteSegment
 
 __all__ = [
     "CheckResult",
@@ -7,4 +8,6 @@ __all__ = [
     "NodeInfo",
     "NodeStatus",
     "ComplianceReport",
+    "Note",
+    "NoteSegment",
 ]

@@ -17,6 +17,12 @@ variable "location" {
   type        = string
 }
 
+variable "master_vm_size" {
+  description = "The Azure VM size for the Master/Management node"
+  type        = string
+  default     = "Standard_B2ats_v2"
+}
+
 variable "vm_size" {
   description = "Azure VM SKU"
   type        = string
