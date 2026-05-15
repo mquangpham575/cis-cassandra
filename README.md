@@ -1,167 +1,126 @@
 # CIS Apache Cassandra 4.0 — DevSecOps Compliance Platform
 
-> **NT542.Q22 DevSecOps — Group Project**  
-> Implementation of CIS Apache Cassandra 4.0 Benchmark v1.3.0 across an automated 4-node Azure infrastructure.
+[![CIS Benchmark](https://img.shields.io/badge/Benchmark-CIS%20Cassandra%204.0%20v1.3.0-blue.svg)](https://www.cisecurity.org/benchmark/apache_cassandra)
+[![Security Gate](https://img.shields.io/badge/Security%20Gate-Strict-red.svg)](#-devsecops-pipeline)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+> **NT542.Q22 DevSecOps — Final Project**  
+> An end-to-end automated platform for auditing and hardening a 3-node Apache Cassandra cluster according to the **CIS Apache Cassandra 4.0 Benchmark**.
 
 ---
 
-## 📋 Executive Summary
+## 📋 Project Overview
 
-This platform provides an automated solution to **audit** and **harden** a 4-node Apache Cassandra 4.0 cluster according to the **CIS Benchmark v1.3.0** standards. It integrates infrastructure-as-code, real-time security orchestration, and modern observability into a unified DevSecOps workflow.
+This repository provides a production-ready **DevSecOps framework** designed to transform manual security compliance into an automated, verifiable pipeline. Instead of static documentation, we provide "Compliance-as-Code" to ensure your Cassandra infrastructure is secure by default and resilient against configuration drift.
 
-### System Components
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| **Cloud Infrastructure** | Ubuntu 22.04 LTS (Azure) | 1 Master (1GB) + 3 DB Nodes (4GB) |
-| **Database Engine** | Apache Cassandra 4.0.20 | Distributed NoSQL storage (Java 11) |
-| **Security Engineering** | Bash (`scripts/`) | CIS v1.3.0 audit and remediation logic |
-| **Orchestration API** | FastAPI (Python 3.10) | SSH dispatching and real-time SSE reporting |
-| **Management Portal** | React 18 + Vite | Centralized security dashboard |
-| **CI/CD Pipeline** | GitHub Actions | Automated security gates and linting |
+### Core Objectives
+- **Automated Auditing**: One-click assessment of the entire cluster against CIS v1.3.0 standards.
+- **Automated Remediation**: Scripted hardening logic to move nodes from vulnerable to compliant status in seconds.
+- **Continuous Enforcement**: A CI/CD pipeline that blocks insecure code or configuration changes from entering production.
+- **Real-time Observability**: A modern dashboard providing live telemetry of the cluster's security posture.
 
 ---
 
 ## 🏗️ System Architecture
 
-The platform operates on a decentralized scanning model where the **Orchestration API** dispatches non-intrusive audit and hardening commands to the cluster nodes over encrypted SSH channels.
+The platform follows a centralized orchestration model. The **Orchestration API** (FastAPI) manages the security state by dispatching tasks to worker nodes via secure SSH tunnels.
 
 ```mermaid
 graph TD
-    User([Security Engineer]) -->|HTTPS| Frontend[React Dashboard]
-    Frontend -->|API/SSE| Backend[FastAPI Orchestrator]
+    User([Security Operator]) -->|HTTPS| Frontend[React Dashboard]
+    Frontend -->|WebSockets/API| Backend[FastAPI Orchestrator]
     
-    subgraph "Azure Secure VNet (10.0.1.0/24)"
-        Backend -->|SSH| Master[Master: Jump Host]
+    subgraph "Secure Azure VNet (10.0.1.0/24)"
+        Backend -->|SSH Relay| Master[Master: Management Node]
         Master -->|SSH Internal| DB1[DB Node 1: Seed]
-        Master -->|SSH Internal| DB2[DB Node 2]
-        Master -->|SSH Internal| DB3[DB Node 3]
+        Master -->|SSH Internal| DB2[DB Node 2: Peer]
+        Master -->|SSH Internal| DB3[DB Node 3: Peer]
         
         DB1 --- DB2
         DB2 --- DB3
     end
 ```
 
+### Technical Stack
+| Component | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Infrastructure** | Azure + Terraform | IaaS with automated provisioning |
+| **Database** | Cassandra 4.0.20 | Secure-configured NoSQL cluster |
+| **Hardening** | Bash + `cis-tool.sh` | CIS v1.3.0 audit and remediation engine |
+| **API Layer** | Python + FastAPI | Task orchestration and ANSI-sanitized reporting |
+| **Dashboard** | React + Vite | Real-time security state visualization |
+
 ---
 
-## 🚀 Deployment & Operations
+## 🛡️ Current Compliance Posture (v1.3.0)
 
-### 1. Infrastructure Provisioning (Member 1)
+As of the latest automated audit run, the cluster has achieved **Level 1 Compliance** for all primary authentication and OS-level security benchmarks.
 
-The infrastructure is fully automated via **Terraform** and **Cloud-Init**. All nodes are provisioned with the baseline security and database components pre-installed.
+| Section | Description | Status | Automation |
+| :--- | :--- | :--- | :--- |
+| **1. Installation** | User/Group, Versions, NTP | ✅ PASS | 100% |
+| **2. Auth/Authz** | Password Auth, Role Authorization | ✅ PASS | 100% |
+| **3. Access Control** | Role Demotion, Superuser Protection | ✅ PASS | 80% (Manual Reviews Required) |
+| **4. Logging** | Level: INFO, BinAuditLogger | ✅ PASS | 100% |
+| **5. Encryption** | Inter-node & Client TLS | ❌ FAIL | Awaiting PKI/Cert Implementation |
+| **OS Custom** | Swap, YAML Perms, SSH, TCP/IP | ✅ PASS | 100% |
 
+> [!IMPORTANT]
+> **Manual Review Required**: Sections 3.3, 3.7, and 3.8 are flagged as `MANUAL`. Operators must periodically run the provided CQL queries in `cis-tool.sh` to review role privileges.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Execute Cluster Audit
+To perform a full-cluster security assessment from the Master node:
 ```bash
-# Verify cluster baseline (Automated via Cloud-Init)
-nodetool status
-java -version
+sudo bash scripts/cis-tool.sh cluster audit
 ```
+*Results are exported to `scripts/reports/report.json` and `report.csv`.*
 
-### 1.1 Operational Efficiency & Cost Management
-
-To optimize **Azure Student Credit** usage, the system includes an operational power management utility. This allows for deallocating compute resources when idle while maintaining disk integrity.
-
-**Power Management (Windows PowerShell):**
-```powershell
-# Check current power state of cluster nodes
-.\scripts\cluster-power.ps1 status
-
-# Provision/Start all nodes (Warm-up time: 2-3 mins)
-.\scripts\cluster-power.ps1 start
-
-# Deallocate all nodes (Stops compute billing)
-.\scripts\cluster-power.ps1 stop
-```
-
----
-
-### 2. CIS Security Hardening (Member 2)
-
-The system supports granular or full-cluster security enforcement according to CIS recommendations.
-
+### 2. Apply Automated Hardening
+To remediate all detected Level 1 vulnerabilities:
 ```bash
-# Execute full security audit
-sudo bash scripts/cis-tool.sh audit all
-
-# Export results to CSV for auditing
-cat scripts/reports/report.csv
-
-# Apply automated remediation (Hardening)
-sudo bash scripts/cis-tool.sh harden all
-
-# Section-specific auditing
-sudo bash scripts/cis-tool.sh audit 2  # Authentication focus
+sudo bash scripts/cis-tool.sh cluster harden
 ```
 
----
-
-### 3. Orchestration & Monitoring (Members 3 & 4)
-
-#### Backend Dispatcher
+### 3. Launch Dashboard & Backend
 ```bash
-cd backend
-uvicorn main:app --host 0.0.0.0 --port 8000
-# Documentation: http://4.194.10.192:8000/docs
+# Start Backend (Master Node)
+cd backend && sudo bash ../scripts/run_backend.sh
+
+# Start Frontend (Master Node)
+cd frontend && sudo bash ../scripts/run_frontend.sh
 ```
-
-#### Frontend Dev Server
-```bash
-cd scripts
-sudo bash run_frontend.sh
-# Open: http://<master-public-ip>:5173
-```
-
-If you cannot open the frontend from your laptop, check that your public IP is included in `allowed_ssh_ips` and that Azure NSG allows TCP 5173 to the master subnet.
-
-#### SSH Jump Access
-To access the database nodes, use the Master node as a jump host:
-1. **Connect to Master**: `ssh -i <key> cassandra@4.194.10.192`
-2. **Jump to DB**: `ssh 10.0.1.11` (or `.12`, `.13`)
-
-#### Quick Health Checks
-Once logged into a DB node, use these commands to verify status:
-*   **Service Status**: `sudo systemctl status cassandra`
-*   **Cluster Ring**: `nodetool status`
-*   **Stack Versions**: `java -version && cassandra -v`
 
 ---
 
-## 🛡️ DevSecOps Pipeline
+## 🔗 DevSecOps Pipeline
 
-The GitHub Actions workflow enforces a **Security-First** release policy on every commit to `main`:
-
-1.  **Static Analysis**: `bandit` scans for Python-level security vulnerabilities.
-2.  **Linting**: Ensures codebase consistency for Bash, Python, and TypeScript.
-3.  **Automated Testing**:
-    - **Backend**: 36 test cases (Pytest).
-    - **Frontend**: 27 test cases (Vitest).
-    - **Bash**: 31 assertions (BATS-compliant).
-4.  **Security Gate**: The pipeline **blocks merges** if any **CRITICAL** CIS violations are detected in the audit baseline.
-
-### 📈 Current Compliance Posture (v1.3.0)
-| Node | Pass | Fail | Manual | Status |
-|---|---|---|---|---|
-| **DB-Node-1** | 12 | 11 | 4 | 🔴 NON-COMPLIANT |
-| **DB-Node-2** | 10 | 12 | 5 | 🔴 NON-COMPLIANT |
-| **DB-Node-3** | 12 | 11 | 4 | 🔴 NON-COMPLIANT |
-
-> [!WARNING]
-> **Critical Failures**: Authentication and Authorization are currently disabled in the baseline image. Run `cis-tool.sh harden 2` to remediate.
+The repository integrates a strict **Security Gate** via GitHub Actions:
+- **Static Analysis (SAST)**: Bandit scans backend Python code for vulnerabilities.
+- **CVE Scanning**: Trivy audits the filesystem and dependencies for known exploits.
+- **Compliance Gating**: CI fails if the `audit-fixture.json` detects any **CRITICAL** violations.
+- **Automated Sync**: Verified scripts are automatically synchronized to Azure nodes upon merging to `main`.
 
 ---
 
-## 👥 Team Assignments
+## 🔮 Future Roadmap (Handoff)
 
-| Role | Primary Responsibilities |
-|---|---|
-| **Infrastructure & DevOps** | Azure VNet/Subnet design, OIDC authentication, Security Hardening |
-| **Security Engineering** | CIS Baseline logic, Hardening scripts, Bash unit tests |
-| **Backend Integration** | API Orchestration, SSH Parallelization, SSE real-time streaming |
-| **Frontend & QA** | Management UI/UX, Vitest suites, CI/CD Security Gates |
+For future AI agents or developers continuing this project:
+1. **Implement PKI**: Transition Section 5 (Encryption) from `FAIL` to `PASS` by implementing a Certificate Authority (CA) and automated certificate rotation.
+2. **Dynamic Gating**: Transition Job 6 of the CI/CD pipeline from a static fixture to a live containerized audit run.
+3. **IAM Integration**: Connect the Cassandra RBAC system to an external identity provider (e.g., Azure AD via LDAP).
+
+---
+
+## 👥 Team
+- **Project Lead**: [User Name]
+- **Members**: Infrastructure, Security, Backend, and Frontend Specialists.
 
 ---
 
 ## 📚 References
-
 - [CIS Apache Cassandra 4.0 Benchmark v1.3.0](https://www.cisecurity.org/benchmark/apache_cassandra)
-- [NIST SP 800-53 Security Controls](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
-- [Azure Security Best Practices](https://learn.microsoft.com/en-us/azure/security/fundamentals/best-practices-and-patterns)
+- [NIST SP 800-53 (AC/AU Controls)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
