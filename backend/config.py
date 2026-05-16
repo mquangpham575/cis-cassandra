@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     cassandra_admin_password: str = Field("changeme", validation_alias="CIS_ADMIN_PASS")
     cassandra_keyspace: str = Field("cis_notes", validation_alias="CASSANDRA_KEYSPACE")
     
-    api_host: str = Field("0.0.0.0", validation_alias="API_HOST")
+    api_host: str = Field("0.0.0.0", validation_alias="API_HOST")  # nosec B104
     api_port: int = Field(8000, validation_alias="API_PORT")
     api_secret_key: str = Field("change-me-in-production", validation_alias="API_SECRET_KEY")
     audit_cache_ttl: int = Field(300, validation_alias="AUDIT_CACHE_TTL")

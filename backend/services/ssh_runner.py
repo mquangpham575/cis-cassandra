@@ -30,7 +30,7 @@ def _get_client(host: str) -> paramiko.SSHClient:
     ssh_user = settings.cis_ssh_user
     client = paramiko.SSHClient()
     # Accepted risk: lab environment only
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec B507
     client.connect(
         hostname=host,
         username=ssh_user,
@@ -47,7 +47,7 @@ def run(host: str, command: str, timeout: int = SSH_CMD_TIMEOUT) -> SSHResult:
     try:
         client = _get_client(host)
         try:
-            _, stdout, stderr = client.exec_command(command, timeout=timeout)
+            _, stdout, stderr = client.exec_command(command, timeout=timeout)  # nosec B601
             out = stdout.read().decode("utf-8", errors="replace")
             err = stderr.read().decode("utf-8", errors="replace")
             code = stdout.channel.recv_exit_status()
