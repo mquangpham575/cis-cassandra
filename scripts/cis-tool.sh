@@ -69,9 +69,11 @@ run_task() {
 
     if [[ "$mode" == "verify" || "$mode" == "audit" ]]; then
         local REPORT_PATH="$SCRIPT_DIR/reports/report.json"
+        local CSV_PATH="$SCRIPT_DIR/reports/report.csv"
         mkdir -p "$SCRIPT_DIR/reports"
         build_report "$(hostname -I | awk '{print $1}')" "$TMPFILE" > "$REPORT_PATH"
-        chmod 666 "$REPORT_PATH"
+        build_csv_report "$TMPFILE" > "$CSV_PATH"
+        chmod 666 "$REPORT_PATH" "$CSV_PATH"
     fi
     rm -f "$TMPFILE"
 }
@@ -89,7 +91,7 @@ case "${1:-}" in
         echo -e "${YELLOW}ACTION: Please perform a ROLLING RESTART to avoid downtime.${NC}"
         print_dashboard "$SCRIPT_DIR/reports/report.json" "$(hostname)"
         ;;
-   cluster)cd 
+   cluster)
         action=${2:-verify}
         workers=("10.0.1.11" "10.0.1.12" "10.0.1.13")
         
@@ -104,15 +106,15 @@ case "${1:-}" in
             echo -e "\n\e[33m[+] Orchestrating NODE: $ip...\e[0m"
             
             # 1. Tạo thư mục và đồng bộ script mới nhất
-            ssh -i /home/cassandra/.ssh/cis_key cassandra@$ip "mkdir -p ~/cis-cassandra/scripts/"
-            rsync -az -e "ssh -i /home/cassandra/.ssh/cis_key" "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
+            ssh cassandra@$ip "mkdir -p ~/cis-cassandra/scripts/"
+            rsync -az -e ssh "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
             
             # 2. Chạy kịch bản Harden (Sẽ dùng lệnh sed để sửa file tự động)
-            ssh -i /home/cassandra/.ssh/cis_key -t cassandra@$ip "sudo ~/cis-cassandra/scripts/cis-tool.sh $action"
+            ssh -t cassandra@$ip "sudo ~/cis-cassandra/scripts/cis-tool.sh $action"
             
             # 3. ÉP RESTART TỪ MASTER: Để mọi thay đổi về User (1.5) và Config có hiệu lực ngay
             echo "Restarting service on $ip to apply changes..."
-            ssh -i /home/cassandra/.ssh/cis_key -t cassandra@$ip "sudo systemctl restart cassandra"
+            ssh -t cassandra@$ip "sudo systemctl restart cassandra"
             
             # 4. Đợi 15s cho node "tỉnh táo" trước khi sang node tiếp theo (Rolling Update)
             sleep 15

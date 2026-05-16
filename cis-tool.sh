@@ -1,51 +1,69 @@
 #!/usr/bin/env bash
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$DIR/scripts/lib/common.sh"
+
+# Define logging internally for robustness
+GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BLUE='\033[0;34m'; NC='\033[0m'
+log_header() { echo -e "\n${CYAN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"; echo -e "┃ $* "; echo -e "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"; }
+log_info()   { echo -e "${BLUE}[ℹ]${NC} $*"; }
+log_ok()     { echo -e "${GREEN}[✔] PASS:${NC} $*"; }
+log_warn()   { echo -e "${YELLOW}[!] FAIL:${NC} $*"; }
+log_manual() { echo -e "${CYAN}[?] MANUAL:${NC} $*"; }
+
+if [[ -f "$DIR/scripts/lib/common.sh" ]]; then source "$DIR/scripts/lib/common.sh"; fi
 
 MODE=""
 SECTION=""
+TARGET="local"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --audit) MODE="audit"; shift ;;
-    --harden) MODE="harden"; shift ;;
+    audit) MODE="audit"; shift ;;
+    harden) MODE="harden"; shift ;;
+    cluster) TARGET="cluster"; shift ;;
     --section) SECTION="$2"; shift 2 ;;
-    *) log_err "Tham số không hợp lệ: $1"; exit 1 ;;
+    *) shift ;;
   esac
 done
 
-if [[ -z "$MODE" ]]; then
-    log_err "Vui lòng chỉ định mode: --audit hoặc --harden"
-    exit 1
+# --- CLUSTER MODE ---
+if [[ "$TARGET" == "cluster" ]]; then
+    COMBINED_FILE="$DIR/scripts/reports/cluster_results.json"
+    > "$COMBINED_FILE"
+    for IP in "${NODE_IPS[@]}"; do
+        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@$IP" "sudo bash ~/cis-tool/cis-tool.sh $MODE ${SECTION:+--section $SECTION}" | while read -r line; do
+            if [[ "$line" == "{"* ]]; then echo "$line" >> "$COMBINED_FILE"; else echo -e "${CYAN}[$IP]${NC} $line"; fi
+        done
+    done
+    exit 0
 fi
 
-check_root
-
+# --- LOCAL MODE ---
 RESULTS_FILE="/tmp/cis_results.json"
 > "$RESULTS_FILE"
 
-log_info "=========================================="
-log_info "CIS Cassandra Benchmark Tool v1.0"
-log_info "Mode: $(echo $MODE | tr '[:lower:]' '[:upper:]')"
-[[ -n "$SECTION" ]] && log_info "Section: $SECTION"
-log_info "=========================================="
-
-SEARCH_DIR="$DIR/scripts/sections"
+cd "$DIR"
+SEARCH_DIR="scripts/sections"
 if [[ -n "$SECTION" ]]; then
-    SEARCH_DIR=$(find "$DIR/scripts/sections" -type d -name "${SECTION}_*")
-    [[ -z "$SEARCH_DIR" ]] && { log_err "Không tìm thấy section $SECTION"; exit 1; }
+    SEARCH_DIR=$(find scripts/sections -maxdepth 1 -type d -name "*${SECTION}*" | head -n 1)
 fi
 
-FAIL_COUNT=0
 for script in $(find "$SEARCH_DIR" -name "check_*.sh" | sort); do
     source "$script"
     check_num=$(basename "$script" .sh | sed 's/check_//')
+    audit_json=$(audit_${check_num} 2>/dev/null)
+    
+    title=$(echo "$audit_json" | grep -oP '"title":"\K[^"]+')
+    severity=$(echo "$audit_json" | grep -oP '"severity":"\K[^"]+')
+    status=$(echo "$audit_json" | grep -oP '"status":"\K[^"]+')
+    current_val=$(echo "$audit_json" | grep -oP '"current_value":"\K[^"]+')
+    remediation=$(echo "$audit_json" | grep -oP '"remediation":"\K[^"]+')
     
     if [[ "$MODE" == "audit" ]]; then
-        audit_${check_num} >> "$RESULTS_FILE"
-        if tail -n 1 "$RESULTS_FILE" | grep -q '"status":"FAIL"'; then
-            FAIL_COUNT=$((FAIL_COUNT + 1))
-        fi
+        echo -e "\n${BLUE}◈ ID ${check_num//_/./}:${NC} ${title}"
+        echo -e "  └─ Severity: ${severity}"
+        echo -e "  └─ Evidence: ${current_val}"
+        if [[ "$status" == "PASS" ]]; then log_ok "Hạng mục này đạt yêu cầu."; elif [[ "$status" == "MANUAL" ]]; then log_manual "Cần kiểm tra thủ công. Gợi ý: ${remediation}"; else log_warn "Vi phạm an ninh detected!"; echo -e "     ${YELLOW}👉 FIX:${NC} ${remediation}"; fi
+        echo "$audit_json" >> "$RESULTS_FILE"
     elif [[ "$MODE" == "harden" ]]; then
         harden_${check_num}
     fi
@@ -66,3 +84,4 @@ if [[ "$MODE" == "audit" ]]; then
         exit 0
     fi
 fi
+if [[ "$MODE" == "audit" && -z "$NO_JSON" ]]; then cat "$RESULTS_FILE"; fi

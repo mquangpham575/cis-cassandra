@@ -15,6 +15,7 @@ audit_2_1() {
 }
 harden_2_1() {
     sed -i 's/^authenticator:.*/authenticator: PasswordAuthenticator/' /etc/cassandra/cassandra.yaml
-    log_info "2.1 Hardened: Set authenticator to PasswordAuthenticator"
+    systemctl restart cassandra
+    log_info "2.1 Hardened: Set authenticator to PasswordAuthenticator and restarted Cassandra"
 }
 verify_2_1() { audit_2_1; }

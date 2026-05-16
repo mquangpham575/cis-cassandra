@@ -1,9 +1,7 @@
-docs/superpowers
 __pycache__/
 *.pyc
 *.pyo
 .env
-.superpowers/
 node_modules/
 dist/
 .pytest_cache/
@@ -21,3 +19,15 @@ dist/
 venv/
 env/
 .venv/
+
+# Security & Temp
+ssh/
+tfplan
+terraform/tfplan
+test_results/
+*.tar.gz
+*.b64
+demo/reports/
+demo/bin/sudo
+demo/bin/getent
+demo/bin/hostname
