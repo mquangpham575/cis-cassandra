@@ -279,7 +279,7 @@ jobs:
             --resource-group rg-cis-cassandra \
             --nsg-name cis-cassandra-nsg \
             --name AllowGitHubRunnerSSH \
-            --priority 99 \
+            --priority 101 \
             --direction Inbound \
             --access Allow \
             --protocol Tcp \
