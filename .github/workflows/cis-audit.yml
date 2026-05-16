@@ -279,7 +279,7 @@ jobs:
             --resource-group rg-cis-cassandra \
             --nsg-name cis-cassandra-nsg \
             --name AllowGitHubRunnerSSH \
-            --priority 105 \
+            --priority 99 \
             --direction Inbound \
             --access Allow \
             --protocol Tcp \
@@ -288,6 +288,8 @@ jobs:
             --destination-address-prefixes '*' \
             --destination-port-ranges 22 \
             --description "Temporary access for GitHub Actions Runner"
+          echo "Waiting 15s for NSG propagation..."
+          sleep 15
 
       - name: Sync CIS scripts to cluster nodes
         env:
@@ -307,7 +309,7 @@ jobs:
           
           for IP in $PUBLIC_IPS; do
             echo "🚀 Syncing scripts to node at $IP..."
-            ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
+            ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=60 \
               cassandra@$IP "mkdir -p ~/cis-tool" || true
             scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r \
               scripts/ cassandra@$IP:~/cis-tool/ || true
