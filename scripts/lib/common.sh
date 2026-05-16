@@ -2,18 +2,20 @@
 CASSANDRA_YAML="${CASSANDRA_YAML:-/etc/cassandra/cassandra.yaml}"
 LOGBACK_XML="${LOGBACK_XML:-/etc/cassandra/logback.xml}"
 CASSANDRA_ENV="${CASSANDRA_ENV:-/etc/cassandra/cassandra-env.sh}"
-NODE_IPS=("4.193.213.85" "4.193.208.18" "4.193.98.211")
+NODE_IPS=("10.0.1.11" "10.0.1.12" "10.0.1.13")
 SSH_KEY="${CIS_SSH_KEY:-$HOME/.ssh/cis_key}"
 SSH_USER="${CIS_SSH_USER:-cassandra}"
 
 NC='\033[0m'
 if [ -t 1 ]; then GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BLUE='\033[0;34m'; else GREEN=''; RED=''; YELLOW=''; CYAN=''; BLUE=''; NC=''; fi
 
-# Các hàm ghi log chuẩn
-log_info() { [ -t 1 ] && echo -e "${BLUE}[INFO]${NC} $(date +'%Y-%m-%dT%H:%M:%SZ') - $*" || echo "[INFO] $*"; }
-log_ok()   { [ -t 1 ] && echo -e "${GREEN}[OK]${NC} $(date +'%Y-%m-%dT%H:%M:%SZ') - $*"   || echo "[OK] $*"; }
-log_warn() { [ -t 1 ] && echo -e "${YELLOW}[WARN]${NC} $(date +'%Y-%m-%dT%H:%M:%SZ') - $*" || echo "[WARN] $*"; }
-log_err()  { [ -t 1 ] && echo -e "${RED}[ERR]${NC} $(date +'%Y-%m-%dT%H:%M:%SZ') - $*"  || echo "[ERR] $*"; }
+# Các hàm ghi log chuyên nghiệp (Professional Logging)
+log_header() { echo -e "\n${CYAN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"; echo -e "${CYAN}┃ $* ${NC}"; echo -e "${CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"; }
+log_info()   { echo -e "${BLUE}[ℹ]${NC} $*"; }
+log_ok()     { echo -e "${GREEN}[✔] PASS:${NC} $*"; }
+log_warn()   { echo -e "${YELLOW}[!] FAIL:${NC} $*"; }
+log_err()    { echo -e "${RED}[✘] ERR :${NC} $*"; }
+log_manual() { echo -e "${CYAN}[?] MANUAL:${NC} $*"; }
 
 # Hàm kiểm tra quyền Root
 check_root() {
