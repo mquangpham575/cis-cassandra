@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuditStream } from '../hooks/useAuditStream'
 import { api } from '../api'
-import type { NodeStatus } from '../types'
+import type { AuditReport, NodeStatus } from '../types'
+import * as XLSX from 'xlsx'
 
 const SECTIONS = [
   { value: 'all', label: 'All Sections' },
@@ -19,6 +20,48 @@ function lineColor(line: string): string {
   if (l.includes('"manual"') || l.includes('warn') || l.includes('review')) return 'text-yellow-400'
   if (l.includes('error')) return 'text-red-500'
   return 'text-gray-300'
+}
+
+function safeSheetName(name: string) {
+  return name.replace(/[\\/?*\[\]:]/g, '-').slice(0, 31)
+}
+
+function exportAuditToExcel(report: AuditReport, lines: string[]) {
+  const workbook = XLSX.utils.book_new()
+
+  const summaryRows = [
+    { field: 'Node', value: report.node },
+    { field: 'Timestamp', value: report.timestamp },
+    { field: 'Total Checks', value: report.score.total },
+    { field: 'Automated', value: report.score.automated },
+    { field: 'Manual', value: report.score.manual },
+    { field: 'Passed', value: report.score.passed },
+    { field: 'Failed', value: report.score.failed },
+    { field: 'Needs Review', value: report.score.needs_review },
+    { field: 'Compliance %', value: report.score.compliance_pct },
+  ]
+  const summarySheet = XLSX.utils.json_to_sheet(summaryRows)
+  XLSX.utils.book_append_sheet(workbook, summarySheet, safeSheetName('Summary'))
+
+  const checksSheet = XLSX.utils.json_to_sheet(report.checks.map(check => ({
+    ID: check.id,
+    Title: check.title,
+    Status: check.status,
+    Type: check.type,
+    Section: check.section,
+    Evidence: check.evidence,
+    Remediable: check.remediable ? 'Yes' : 'No',
+  })))
+  XLSX.utils.book_append_sheet(workbook, checksSheet, safeSheetName('Checks'))
+
+  const logSheet = XLSX.utils.json_to_sheet(lines.map((line, index) => ({
+    Line: index + 1,
+    Text: line,
+  })))
+  XLSX.utils.book_append_sheet(workbook, logSheet, safeSheetName('Raw Output'))
+
+  const fileName = `audit-${report.node}-${new Date(report.timestamp).toISOString().replace(/[:.]/g, '-')}.xlsx`
+  XLSX.writeFile(workbook, fileName)
 }
 
 export function AuditLivePage() {
@@ -86,7 +129,13 @@ export function AuditLivePage() {
 
   const handleClear = () => setLines([])
 
+  const handleExport = () => {
+    if (state.status !== 'done') return
+    exportAuditToExcel(state.report, lines)
+  }
+
   const isStreaming = state.status === 'streaming'
+  const canExport = state.status === 'done'
 
   return (
     <div className="space-y-4">
@@ -154,6 +203,14 @@ export function AuditLivePage() {
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm transition-colors"
           >
             Clear
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!canExport || isStreaming}
+            title={canExport ? 'Export the last completed audit to Excel' : 'Run an audit first to enable export'}
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+          >
+            Export to Excel
           </button>
         </div>
       </div>

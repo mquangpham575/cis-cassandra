@@ -11,6 +11,7 @@ export type StreamState =
 export function useAuditStream() {
   const [state, setState] = useState<StreamState>({ status: 'idle' })
   const wsRef = useRef<WebSocket | null>(null)
+  const pendingReportRef = useRef<AuditReport | null>(null)
 
   // Close WebSocket on unmount to prevent resource leaks.
   useEffect(() => {
@@ -27,6 +28,7 @@ export function useAuditStream() {
   ) => {
     wsRef.current?.close()
     wsRef.current = null
+    pendingReportRef.current = null
     setState({ status: 'streaming', node: nodeIp })
 
     const ws = new WebSocket(api.auditStreamUrl(nodeIp, section))
@@ -41,11 +43,23 @@ export function useAuditStream() {
       try {
         const payload = JSON.parse(ev.data) as Record<string, unknown>
 
+        if (payload.type === 'log' && typeof payload.message === 'string') {
+          try {
+            const candidate = JSON.parse(payload.message) as AuditReport
+            if (candidate && typeof candidate === 'object' && Array.isArray(candidate.checks)) {
+              pendingReportRef.current = candidate
+            }
+          } catch {
+            // Ignore non-report log lines.
+          }
+        }
+
         if (payload.type === 'complete' && payload.summary) {
           const summary = payload.summary as Record<string, unknown>
+          const cachedReport = pendingReportRef.current
           setState({
             status: 'done',
-            report: {
+            report: cachedReport ?? {
               node: nodeIp,
               timestamp: new Date().toISOString(),
               score: {
@@ -62,18 +76,21 @@ export function useAuditStream() {
           })
           ws.close()
           wsRef.current = null
+          pendingReportRef.current = null
           return
         }
         if (payload.type === 'error') {
           setState({ status: 'error', message: String(payload.message ?? 'Unknown error') })
           ws.close()
           wsRef.current = null
+          pendingReportRef.current = null
           return
         }
       } catch {
         setState({ status: 'error', message: 'Failed to parse WebSocket payload' })
         ws.close()
         wsRef.current = null
+        pendingReportRef.current = null
       }
     }
 
@@ -81,12 +98,14 @@ export function useAuditStream() {
       setState({ status: 'error', message: 'WebSocket connection lost' })
       ws.close()
       wsRef.current = null
+      pendingReportRef.current = null
     }
   }, [])
 
   const stop = useCallback(() => {
     wsRef.current?.close()
     wsRef.current = null
+    pendingReportRef.current = null
     setState({ status: 'idle' })
   }, [])
 
