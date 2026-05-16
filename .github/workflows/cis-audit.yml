@@ -300,7 +300,15 @@ jobs:
           chmod 600 /tmp/deploy_key
           
           # Fetch public IPs dynamically from Azure
-          PUBLIC_IPS=$(az network public-ip list --resource-group rg-cis-cassandra --query "[].ipAddress" -o tsv)
+          # Fetch Master Node public IP specifically
+          MASTER_IP=$(az network public-ip show --resource-group rg-cis-cassandra --name cis-cassandra-master-pip --query "ipAddress" -o tsv)
+          
+          if [ -z "$MASTER_IP" ]; then
+            echo "❌ Could not find public IP for Master Node"
+            exit 1
+          fi
+          
+          PUBLIC_IPS="$MASTER_IP"
           
           if [ -z "$PUBLIC_IPS" ]; then
             echo "❌ No public IPs found for resource group rg-cis-cassandra"
