@@ -9,8 +9,8 @@ vi.mock('../pages/DashboardPage', () => ({
 vi.mock('../pages/CompliancePage', () => ({
   CompliancePage: () => <div data-testid="compliance-page">Compliance Content</div>,
 }))
-vi.mock('../pages/MonitoringPage', () => ({
-  MonitoringPage: () => <div data-testid="monitoring-page">Monitoring Content</div>,
+vi.mock('../pages/NotesPage', () => ({
+  NotesPage: () => <div data-testid="notes-page">Notes Content</div>,
 }))
 vi.mock('../pages/AuditLivePage', () => ({
   AuditLivePage: () => <div data-testid="audit-live-page">Audit Live Content</div>,
@@ -41,11 +41,11 @@ describe('App', () => {
     expect(screen.queryByTestId('dashboard-page')).not.toBeInTheDocument()
   })
 
-  it('switches to Monitoring tab on click', () => {
+  it('switches to Notes tab on click', () => {
     render(<App />)
-    const monitoringTab = screen.getByRole('tab', { name: /Monitoring/ })
-    fireEvent.click(monitoringTab)
-    expect(screen.getByTestId('monitoring-page')).toBeInTheDocument()
+    const notesTab = screen.getByRole('tab', { name: /Notes/ })
+    fireEvent.click(notesTab)
+    expect(screen.getByTestId('notes-page')).toBeInTheDocument()
   })
 
   it('shows version badge', () => {
