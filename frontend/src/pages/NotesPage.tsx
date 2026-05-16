@@ -1,10 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { api } from '../api'
-
-interface NoteSegment {
-  id: string
-  text: string
-}
+import type { Note, NoteSegment } from '../types'
 
 interface NoteCard {
   id: string
@@ -24,14 +20,14 @@ export function NotesPage() {
 
   useEffect(() => {
     let mounted = true
-    api.getNotes().then(serverNotes => {
+    api.getNotes().then((serverNotes: Note[]) => {
       if (!mounted) return
       // Map server notes to local NoteCard shape
-      setNotes(serverNotes.map(n => ({
+      setNotes(serverNotes.map((n: Note) => ({
         id: n.id,
         title: n.title,
         isEditing: false,
-        segments: n.segments.map(s => ({ id: s.id, text: s.text })),
+        segments: n.segments.map((s: NoteSegment) => ({ id: s.id, text: s.text })),
       })))
     }).catch(() => {
       // keep empty state on error
@@ -60,7 +56,7 @@ export function NotesPage() {
     }
     setNotes(prev => [...prev, newLocal])
     // Persist to backend (server will assign canonical id, but we keep optimistic id)
-    api.createNote({ title: newLocal.title, segments: newLocal.segments }).then(created => {
+    api.createNote({ title: newLocal.title, segments: newLocal.segments }).then((created: Note) => {
       setNotes(prev => prev.map(n => n.id === id ? { ...n, id: created.id } : n))
     }).catch(() => {
       // ignore error for now

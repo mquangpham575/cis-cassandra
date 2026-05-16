@@ -1,5 +1,5 @@
 import type {
-  ClusterAuditReport, AuditReport, NodeStatus, HardenRequest, HardenResult
+  ClusterAuditReport, AuditReport, NodeStatus, HardenRequest, HardenResult, Note
 } from './types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
@@ -30,4 +30,29 @@ export const api = {
     post<HardenResult>(`/api/harden/node/${ip}`, req),
   auditStreamUrl: (ip: string, section = 'all') =>
     `${BASE}/api/audit/stream/${ip}?section=${encodeURIComponent(section)}`,
+
+  // Notes API
+  getNotes: () => get<Note[]>('/api/notes'),
+  createNote: (note: Partial<Note>) => post<Note>('/api/notes', note),
+  updateNote: (id: string, note: Partial<Note>) =>
+    put<Note>(`/api/notes/${id}`, note),
+  deleteNote: (id: string) => del<{ deleted: boolean }>(`/api/notes/${id}`),
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
 }

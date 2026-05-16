@@ -62,3 +62,17 @@ export interface StreamLogLine {
   level: 'info' | 'pass' | 'fail' | 'warn'
   message: string
 }
+
+export interface NoteSegment {
+  id: string
+  text: string
+}
+
+export interface Note {
+  id: string
+  title: string
+  segments: NoteSegment[]
+  node?: string
+  created_at: string
+  updated_at: string
+}
