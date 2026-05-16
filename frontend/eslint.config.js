@@ -27,6 +27,7 @@ export default [
         sessionStorage: 'readonly',
         location: 'readonly',
         navigator: 'readonly',
+        WebSocket: 'readonly',
       },
       parserOptions: {
         ecmaVersion: 'latest',
