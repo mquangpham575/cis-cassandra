@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Mock sudo for Demo
+if [[ "$1" == "useradd" || "$2" == "useradd" ]]; then
+    touch /tmp/mock_cassandra_user_exists
+    exit 0
+fi
+if [[ "$1" == "groupadd" || "$2" == "groupadd" ]]; then
+    touch /tmp/mock_cassandra_group_exists
+    exit 0
+fi
+# Passthrough other commands or do nothing
+exit 0

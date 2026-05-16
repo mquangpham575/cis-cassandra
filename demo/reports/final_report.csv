@@ -1,0 +1,3 @@
+Check ID,Section,Title,Status,Severity,Current Value,Expected Value,Node,Timestamp
+"1.1","1 Installation","Separate user/group","PASS","MEDIUM","cassandra exists","cassandra:cassandra","192.168.1.100","2024-05-16T12:00:00Z"
+"2.1","2 Auth","Insecure Authenticator","FAIL","CRITICAL","AllowAllAuthenticator","PasswordAuthenticator","192.168.1.100","2024-05-16T12:00:01Z"

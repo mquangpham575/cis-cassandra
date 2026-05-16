@@ -1,0 +1,15 @@
+{
+  "node": "192.168.1.100",
+  "timestamp": "2026-05-16T07:08:19Z",
+  "score": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "manual": 0
+0
+  },
+  "checks": [
+    {"check_id":"1.1","title":"Separate user/group","status":"PASS","severity":"MEDIUM","current_value":"cassandra exists","expected_value":"cassandra:cassandra","remediation":"","section":"1 Installation","node":"192.168.1.100","timestamp":"2024-05-16T12:00:00Z"},
+    {"check_id":"2.1","title":"Insecure Authenticator","status":"FAIL","severity":"CRITICAL","current_value":"AllowAllAuthenticator","expected_value":"PasswordAuthenticator","remediation":"Enable PasswordAuthenticator","section":"2 Auth","node":"192.168.1.100","timestamp":"2024-05-16T12:00:01Z"}
+  ]
+}

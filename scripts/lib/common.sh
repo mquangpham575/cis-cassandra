@@ -17,6 +17,9 @@ log_err()  { [ -t 1 ] && echo -e "${RED}[ERR]${NC} $(date +'%Y-%m-%dT%H:%M:%SZ')
 
 # Hàm kiểm tra quyền Root
 check_root() {
+    if [[ "$CIS_MOCK" == "1" ]]; then
+        return 0
+    fi
     if [ "$EUID" -ne 0 ]; then
         log_err "Please run using root (sudo)."
         exit 1

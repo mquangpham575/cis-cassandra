@@ -1,0 +1,7 @@
+# Mock Cassandra Configuration (Vulnerable)
+authenticator: AllowAllAuthenticator
+authorizer: AllowAllAuthorizer
+client_encryption_options:
+    enabled: false
+native_transport_port: 9042
+rpc_address: 0.0.0.0

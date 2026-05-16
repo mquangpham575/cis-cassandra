@@ -73,102 +73,87 @@ Trong một dự án DevSecOps, hạ tầng không chỉ là máy chủ mà là 
 
 | Thành phần      | Mô tả                     | Vai trò                   | Lý do chọn                                                                                               |
 | :-------------- | :------------------------ | :------------------------ | :------------------------------------------------------------------------------------------------------- | -------------- |
-| **Master Node** | B2ats_v2 (1vCPU, 1GB)     | Jump Host + Orchestration | • Điểm truy cập duy nhất từ internet<br>• SSH relay đến các DB nodes<br>• Chạy FastAPI/Dashboard backend |
-| **DB1 (Seed)**  | B2als_v2 (2vCPU, 4GB)     | Cassandra Seed Node       | • Điểm khởi động cluster<br>• Lưu trữ gossip protocol metadata<br>• Quota restriction: đủ tài nguyên     |
-| **DB2, DB3**    | B2als_v2 (2vCPU, 4GB)     | Data Nodes                | • Nút lưu trữ dữ liệu<br>• Sao chép replica                                                              | Quotasresource |
-| **VNet/Subnet** | 10.0.0.0/16 / 10.0.1.0/24 | Network Isolation         | • Đủ IP cho mở rộng<br>• Private subnet cho DB nodes<br>• NSG filtering                                  |
+| **Master Node** | B2ats_v2 (1vCPU, 1GB)     | Jump Host + Orchestration | • Điểm truy cập duy nhất từ internet.<br>• SSH relay đến các DB nodes.<br>• Chạy FastAPI/Dashboard backend. |
+| **DB1 (Seed)**  | B2als_v2 (2vCPU, 4GB)     | Cassandra Seed Node       | • Điểm khởi động cluster.<br>• Lưu trữ gossip protocol metadata.<br>• Quota restriction: đủ tài nguyên.     |
+| **DB2, DB3**    | B2als_v2 (2vCPU, 4GB)     | Data Nodes                | • Nút lưu trữ dữ liệu.<br>• Sao chép replica.                                                              |
+| **VNet/Subnet** | 10.0.0.0/16 / 10.0.1.0/24 | Network Isolation         | • Đủ IP cho mở rộng.<br>• Private subnet cho DB nodes.<br>• NSG filtering.                                  |
 
 **Vấn đề gặp phải và giải pháp:**
 
 Khi triển khai lần đầu, chúng tôi gặp ba rủi ro lớn:
 
 1. **Quota Limitation (Giới hạn tài nguyên):**
-   - Azure Student Subscription: Tối đa 6 cores
-   - 4 nodes × 2 cores = 8 cores → **VƯỢT QUỐTA**
+   - Azure Student Subscription: Tối đa 6 cores.
+   - 4 nodes × 2 cores = 8 cores → **VƯỢT QUOTA**.
    - **Giải pháp:** Yêu cầu tăng quota lên 8 cores (được chấp thuận). Downgrade Master từ B2als → B2ats (1 core) để tiết kiệm.
-   - **Kết quả:** Tổng 7 cores (1 Master + 3×2 Data) = **Nằm trong quota mới**
+   - **Kết quả:** Tổng 7 cores (1 Master + 3×2 Data) = **Nằm trong quota mới**.
 
 2. **Capacity Crisis (Thiếu tài nguyên máy chủ):**
-   - VM size B1s (1 core) → Đã hết hàng ở Southeast Asia
-   - VM size F1s (1 core) → Cũng hết hàng
-   - **Giải pháp:** Chuyển sang B2ats_v2 (1 core) có sẵn
-   - **Ảnh hưởng:** Thay đổi kiến trúc từ 4 nodes thành 1 Master + 3 Data nodes
+   - VM size B1s (1 core) → Đã hết hàng ở Southeast Asia.
+   - VM size F1s (1 core) → Cũng hết hàng.
+   - **Giải pháp:** Chuyển sang B2ats_v2 (1 core) có sẵn.
+   - **Ảnh hưởng:** Thay đổi kiến trúc từ 4 nodes thành 1 Master + 3 Data nodes.
 
 3. **Architecture Mismatch (Kiến trúc không phù hợp):**
-   - Ban đầu muốn dùng ARM64 (rẻ hơn)
-   - Azure Southeast Asia chỉ có x86_64 stock sẵn
-   - **Giải pháp:** Dùng x86_64 (tương thích tốt hơn với Cassandra)
-   - **Nhân rộng:** Chọn AMD x86_64 để đảm bảo tuân thủ CIS (CIS chủ yếu kiểm tra x86_64)
+   - Ban đầu muốn dùng ARM64 (rẻ hơn).
+   - Azure Southeast Asia chỉ có x86_64 stock sẵn.
+   - **Giải pháp:** Dùng x86_64 (tương thích tốt hơn với Cassandra).
+   - **Nhân rộng:** Chọn AMD x86_64 để đảm bảo tuân thủ CIS (CIS chủ yếu kiểm tra x86_64).
 
-#### 3.1.2 Các Phương Pháp Thực Hiện Manual
+#### 3.1.2 Các Phương Pháp Thực Hiện Manual (Manual Compliance Methods)
 
-**Manual Setup có nghĩa là gì?**
+Theo chuẩn CIS Cassandra Benchmark v1.3.0, các bước **Manual** là những kiểm tra yêu cầu sự can thiệp và đánh giá trực tiếp của con người. Chúng thường liên quan đến các chính sách tổ chức hoặc các cấu hình không thể xác minh bằng script một cách tin cậy 100%.
 
-Manual setup là các bước mà cần **con người can thiệp trực tiếp** để cấu hình, kiểm tra, hoặc xác minh. Những bước này không thể tự động hóa 100% vì chúng yêu cầu:
+**Định nghĩa trong dự án:**
 
-- Quyết định con người (ví dụ: chọn loại encryption)
-- Tương tác phức tạp (ví dụ: khởi tạo PKI certificates)
-- Xác minh trạng thái hệ thống trước khi tiếp tục
+- **Audit Manual:** Sử dụng quyền SSH truy cập trực tiếp vào từng node để chạy các lệnh kiểm tra (Audit) được liệt kê trong benchmark.
+- **Remediation Manual:** Chỉnh sửa cấu hình thủ công qua `vi` hoặc `nano` khi phát hiện lỗi không tuân thủ.
 
-**Các bước Manual trong project:**
+**Danh sách đầy đủ các hạng mục Manual (Dựa trên cis_cassandra.txt):**
 
-| Bước  | Tiêu đề                          | Nội dung                                                                                                                       | Thời gian |
-| :---- | :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :-------- |
-| **1** | Tạo Azure Resource Group         | `az group create -n cis-cassandra-rg -l "Southeast Asia"`                                                                      | ~1 phút   |
-| **2** | Chuẩn bị SSH Key                 | `ssh-keygen -t rsa -N "" -f ssh/cis_key`<br>Lưu khóa public vào Terraform                                                      | ~2 phút   |
-| **3** | Điền Terraform Variables         | Tạo `terraform.tfvars`:<br>- SSH IPs (danh sách IP công cộng được phép)<br>- VM sizes<br>- Location                            | ~3 phút   |
-| **4** | SSH Setup trên Master            | Copy private key tới Master:<br>`scp -i ssh/cis_key ssh/cis_key cassandra@[IP]`<br>Cấu hình SSH config để auto-detect DB nodes | ~5 phút   |
-| **5** | Xác minh Cassandra seed IP       | Kiểm tra `cassandra.yaml` seed node<br>Đảm bảo trùng với Terraform (`10.0.1.11`)                                               | ~2 phút   |
-| **6** | Kiểm tra Inter-node Connectivity | SSH tới Master, sau đó:<br>`ssh db1 "nodetool status"`<br>Xác minh tất cả 3 nodes UP                                           | ~3 phút   |
+| ID  | Tiêu đề (CIS Recommendation) | Phương pháp thực hiện Manual |
+| :--- | :--- | :--- |
+| **1.1** | Ensure a separate user and group exist | Kiểm tra file `/etc/passwd` và `/etc/group` để xác nhận user `cassandra` tồn tại. |
+| **1.6** | Ensure clocks are synchronized | Chạy `timedatectl status` để xác nhận NTP đang hoạt động chính xác trên toàn cluster. |
+| **3.3** | Ensure no unnecessary roles/privileges | Truy cập `cqlsh`, chạy `LIST ROLES` và đối chiếu với danh sách nhân sự thực tế. |
+| **3.5** | Listen only on authorized interfaces | Kiểm tra `rpc_address` và `listen_address` trong `cassandra.yaml` so với sơ đồ mạng. |
+| **3.6** | Data Center Authorizations activated | Xác minh cấu hình `authorizer: CassandraAuthorizer` và phân vùng DC. |
+| **3.7** | Review User-Defined Roles | Kiểm tra thủ công các quyền `GRANT` đặc thù được cấp cho người dùng cuối. |
+| **3.8** | Review Superuser/Admin Roles | Xác minh danh sách người dùng có quyền `SUPERUSER` để hạn chế tối đa rủi ro. |
+| **4.2** | Ensure that auditing is enabled | Kiểm tra phần `audit_logging_options` trong `cassandra.yaml` và xác nhận log file được tạo ra. |
 
-**Lý do cần Manual:**
+**Lý do chọn Manual cho các bước này:**
+- Đảm bảo tính chính xác tuyệt đối cho các yếu tố định danh (Identity).
+- Các bước 3.3, 3.7, 3.8 yêu cầu sự phán đoán của con người về tính "cần thiết" của một vai trò.
+- Tránh rủi ro automation làm gián đoạn dịch vụ khi cấu hình file yaml nhạy cảm.
 
-- **Ansible/Chef**: Quá phức tạp cho project 4 tuần
-- **Terraform user_data**: Có giới hạn (cloud-init chạy một lần, khó debug)
-- **SSH config**: Cần điều chỉnh cụ thể cho mỗi team member
+#### 3.1.3 Các Phương Pháp Thực Hiện Automation (Automated Compliance Methods)
 
-#### 3.1.3 Các Phương Pháp Thực Hiện Automation
+Automation là trọng tâm của DevSecOps. Trong dự án này, chúng tôi tự động hóa việc kiểm tra (Audit) và khắc phục (Remediation) cho phần lớn các đề xuất CIS có thể định nghĩa bằng logic code.
 
-**Automation có nghĩa là gì?**
+**Công cụ sử dụng:**
 
-Automation là quá trình **viết code/script để máy tự làm**, giảm thiểu can thiệp con người. Mục tiêu:
+- **`cis-tool.sh`**: Script Bash đóng gói toàn bộ logic Audit của CIS Benchmark.
+- **Python Backend (FastAPI)**: Điều phối việc thực thi script trên tất cả các node qua SSH và thu thập kết quả JSON.
+- **Terraform/Cloud-init**: Tự động cấu hình các thiết lập bảo mật ngay từ khi khởi tạo (Security by Design).
 
-- **Tái tạo được:** Nếu xóa infra, có thể tái tạo trong vài phút
-- **Consistent:** Mỗi lần setup đều giống nhau
-- **Auditable:** Có thể theo dõi thay đổi nào tới hạ tầng
+**Danh sách đầy đủ các hạng mục Automation (Dựa trên cis_cassandra.txt):**
 
-**Automation trong project:**
+| ID  | Tiêu đề (CIS Recommendation) | Phương pháp thực hiện Automation |
+| :--- | :--- | :--- |
+| **1.2 - 1.4** | Version Checks (Java, Python, C*) | `cis-tool.sh` tự động so sánh version hiện tại với whitelist được định nghĩa trước. |
+| **1.5** | Run as non-root user | Script kiểm tra owner của tiến trình cassandra qua lệnh `ps`. |
+| **2.1 - 2.2** | Auth & Authz Enabled | Tự động quét `cassandra.yaml` để tìm `PasswordAuthenticator` và `CassandraAuthorizer`. |
+| **3.1** | Separate cassandra/superuser roles | Script kiểm tra danh sách roles và cảnh báo nếu superuser dùng chung account mặc định. |
+| **3.2** | Default password change | Tự động thử đăng nhập với user `cassandra/cassandra` để xác nhận đã đổi mật khẩu. |
+| **3.4** | Non-privileged service account | Kiểm tra quyền hạn của user chạy service để đảm bảo không có đặc quyền sudo/root. |
+| **4.1** | Ensure logging is enabled | Tự động kiểm tra cấu hình `logback.xml` và log level. |
+| **5.1 - 5.2** | Encryption settings | Tự động quét file `cassandra.yaml` để tìm các flag `internode_encryption` và `client_encryption`. |
 
-| Mục                       | Tool             | Script                                                          | Kết quả                                                                                                                                         |
-| :------------------------ | :--------------- | :-------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IaaS Provisioning**     | Terraform        | `terraform/main.tf`<br>`terraform/vms.tf`<br>`terraform/nsg.tf` | • 1 VNet (10.0.0.0/16)<br>• 1 Subnet (10.0.1.0/24)<br>• 4 VMs<br>• 4 NICs với static IP<br>• 1 Public IP (Master)<br>• 1 NSG với firewall rules |
-| **Cloud-init (OS Setup)** | Bash (user_data) | `vms.tf` → embedded cloud-init script                           | • Ubuntu 22.04 LTS boot<br>• Cài OpenJDK 11<br>• Cài Python 3.10<br>• Cài Cassandra 4.0.20 từ apt repo<br>• Khởi tạo `/var/lib/cassandra`       |
-| **Post-Deploy Config**    | Bash             | `POST_DEPLOY_GUIDE.md` (manual steps)                           | • SSH key setup<br>• SSH config (~/.ssh/config)<br>• Xác minh connectivity                                                                      |
-
-**Tại sao không tự động hóa 100%?**
-
-Terraform cloud-init có hạn chế:
-
-```hcl
-# ❌ Không thể làm điều này tự động:
-resource "null_resource" "wait_for_cassandra" {
-  provisioner "remote-exec" {
-    inline = ["nodetool status"]  # Chạy trước khi Cassandra khởi động
-  }
-}
-
-# ✅ Thay vào đó:
-# - Dùng cloud-init `runcmd` để khởi động Cassandra
-# - Manual SSH tới Master để verify status
-# - Hoặc dùng Python/Ansible post-deployment
-```
-
-**Chi phí Automation:**
-
-- **Code viết:** ~4 giờ
-- **Debug:** ~6 giờ (network, permission, cloud-init timeout)
-- **Giá trị:** Deploy cả cluster trong ~15 phút thay vì 2 giờ manual
-- **ROI:** Nếu phải deploy lại 2 lần, đã hết vốn
+**Lợi ích của Automation:**
+- **Tốc độ:** Kiểm tra toàn bộ cluster (3 nodes) chỉ trong chưa đầy 5 giây.
+- **Độ tin cậy:** Tránh sai sót do yếu tố mệt mỏi hoặc nhầm lẫn của con người.
+- **Khả năng báo cáo:** Dữ liệu trả về dạng JSON giúp tích hợp dễ dàng vào Dashboard/Web UI và CI/CD pipeline.
 
 ---
 
@@ -180,11 +165,11 @@ resource "null_resource" "wait_for_cassandra" {
 
 Terraform cần biết:
 
-- Tên project (sẽ gắn vào tất cả resources)
-- Vị trí (region) để tối thiểu latency
-- Loại VM để control chi phí vs performance
-- SSH public key để bảo mật VM
-- IP ranges được phép SSH (firewall whitelist)
+- Tên project (sẽ gắn vào tất cả resources).
+- Vị trí (region) để tối thiểu latency.
+- Loại VM để control chi phí vs performance.
+- SSH public key để bảo mật VM.
+- IP ranges được phép SSH (firewall whitelist).
 
 **Cách thực hiện:**
 
@@ -255,13 +240,13 @@ EOF
 
 **Lý do từng biến:**
 
-| Biến              | Giá trị             | Lý do                                                        |
-| :---------------- | :------------------ | :----------------------------------------------------------- |
-| `project_name`    | `cis-cassandra`     | Prefix cho tất cả resources: `-vnet`, `-subnet`, `-nsg`, VMs |
-| `location`        | `Southeast Asia`    | Region gần nhất để minimize latency + giá tốt                |
-| `vm_size`         | `Standard_B2als_v2` | **2vCPU / 4GB** — Burstable VM, đủ cho Cassandra dev/test    |
-| `master_vm_size`  | `Standard_B2ats_v2` | **1vCPU / 1GB** — Đủ cho jump host + FastAPI                 |
-| `allowed_ssh_ips` | `[IP/32, ...]`      | **Firewall whitelist** — Chỉ những IPs này mới SSH được      |
+| Biến              | Giá trị             | Lý do                                                         |
+| :---------------- | :------------------ | :------------------------------------------------------------ |
+| `project_name`    | `cis-cassandra`     | Prefix cho tất cả resources: `-vnet`, `-subnet`, `-nsg`, VMs. |
+| `location`        | `Southeast Asia`    | Region gần nhất để minimize latency + giá tốt.                |
+| `vm_size`         | `Standard_B2als_v2` | **2vCPU / 4GB** — Burstable VM, đủ cho Cassandra dev/test.    |
+| `master_vm_size`  | `Standard_B2ats_v2` | **1vCPU / 1GB** — Đủ cho jump host + FastAPI.                 |
+| `allowed_ssh_ips` | `[IP/32, ...]`      | **Firewall whitelist** — Chỉ những IPs này mới SSH được.      |
 
 **Kiểm tra:**
 
@@ -282,9 +267,9 @@ cat terraform/terraform.tfvars | grep -E "^[a-z_]+ = "
 
 Resource Group là **logical container** trong Azure để:
 
-- Tập hợp tất cả resources (VNet, VMs, NSG) thành một "project"
-- Dễ dàng quản lý, monitor, xóa toàn bộ cùng lúc
-- Gắn tags, billing, access control
+- Tập hợp tất cả resources (VNet, VMs, NSG) thành một "project".
+- Dễ dàng quản lý, monitor, xóa toàn bộ cùng lúc.
+- Gắn tags, billing, access control.
 
 **Cách thực hiện:**
 
@@ -322,9 +307,9 @@ az group show --name cis-cassandra-rg
 
 Mặc định, Terraform lưu state file cục bộ (`terraform.tfstate`). Vấn đề:
 
-- Nếu xóa file, mất track của resources → không thể `terraform destroy`
-- Nhiều người làm việc → xung đột state
-- Không có version control
+- Nếu xóa file, mất track của resources → không thể `terraform destroy`.
+- Nhiều người làm việc → xung đột state.
+- Không có version control.
 
 **Giải pháp:** Lưu state trên Azure Blob Storage (remote backend)
 
@@ -404,10 +389,10 @@ ls -la .terraform/
 
 Trước khi apply, verify:
 
-- Syntax đúng
-- Variables đầu vào hợp lệ
-- Không có reference errors
-- Sẵn sàng deploy
+- Syntax đúng.
+- Variables đầu vào hợp lệ.
+- Không có reference errors.
+- Sẵn sàng deploy.
 
 **Cách thực hiện:**
 
@@ -471,17 +456,17 @@ terraform apply
 
 **Thời gian chi tiết:**
 
-| Tài nguyên         | Thời gian         | Ghi chú                          |
-| :----------------- | :---------------- | :------------------------------- |
-| Resource Group     | ~2 giây           | Instant                          |
-| VNet + Subnet      | ~3 giây           | Instant                          |
-| NSG                | ~5 giây           | Instant                          |
-| Public IP (Master) | ~10 giây          | Instant                          |
-| NICs × 4           | ~15 giây          | Instant                          |
-| NSG Rules × 5      | ~20 giây          | Instant                          |
-| VM (Master)        | ~1 phút           | Cloud-init runs in parallel      |
-| VM (DB1, DB2, DB3) | ~3-4 phút **MỖI** | Sequential (Cassandra bootstrap) |
-| **Total**          | **10-15 phút**    | Tuỳ vào queue                    |
+| Tài nguyên         | Thời gian         | Ghi chú                           |
+| :----------------- | :---------------- | :-------------------------------- |
+| Resource Group     | ~2 giây           | Instant.                          |
+| VNet + Subnet      | ~3 giây           | Instant.                          |
+| NSG                | ~5 giây           | Instant.                          |
+| Public IP (Master) | ~10 giây          | Instant.                          |
+| NICs × 4           | ~15 giây          | Instant.                          |
+| NSG Rules × 5      | ~20 giây          | Instant.                          |
+| VM (Master)        | ~1 phút           | Cloud-init runs in parallel.      |
+| VM (DB1, DB2, DB3) | ~3-4 phút **MỖI** | Sequential (Cassandra bootstrap). |
+| **Total**          | **10-15 phút**    | Tuỳ vào queue.                    |
 
 **Giải thích cloud-init timing:**
 
@@ -529,9 +514,9 @@ echo "SSH tới Master: ssh -i ssh/cis_key cassandra@$MASTER_IP"
 
 State file lưu thông tin chi tiết về từng resource — dùng để:
 
-- Detect changes (terraform plan sau này)
-- Track dependencies
-- Troubleshoot issues
+- Detect changes (terraform plan sau này).
+- Track dependencies.
+- Troubleshoot issues.
 
 **Cách thực hiện:**
 
@@ -589,10 +574,10 @@ cp terraform.tfstate terraform.tfstate.backup
 
 VMs vừa được tạo, nhưng:
 
-- Cassandra chưa sẵn sàng (cloud-init còn chạy)
-- SSH key chưa được copy tới Master
-- SSH config chưa setup
-- Cần verify connectivity
+- Cassandra chưa sẵn sàng (cloud-init còn chạy).
+- SSH key chưa được copy tới Master.
+- SSH config chưa setup.
+- Cần verify connectivity.
 
 **Cách thực hiện:**
 
@@ -685,10 +670,10 @@ done
 
 Cloud-init tạo VMs nhưng Cassandra khởi động độc lập. Cần verify:
 
-- Cassandra process chạy trên từng node
-- Cluster thây nhau (gossip hoạt động)
-- Seed node (`db1`) hoạt động bình thường
-- Không có lỗi bootstrap
+- Cassandra process chạy trên từng node.
+- Cluster thây nhau (gossip hoạt động).
+- Seed node (`db1`) hoạt động bình thường.
+- Không có lỗi bootstrap.
 
 **Cách thực hiện:**
 
@@ -765,12 +750,12 @@ ssh db1 "nodetool info"
 
 **Troubleshooting (nếu cluster không OK):**
 
-| Triệu chứng               | Nguyên nhân              | Giải pháp                                                           |
-| :------------------------ | :----------------------- | :------------------------------------------------------------------ |
-| `nodetool status` timeout | Cassandra chưa khởi động | Chờ 2-3 phút, check logs                                            |
-| Status = `DN` (Down)      | Node crash               | `systemctl status cassandra`, check `/var/log/cassandra/system.log` |
-| `Connection refused`      | Cassandra port không mở  | Check NSG rules (port 7000, 9042)                                   |
-| Gossip error              | Seed node IP sai         | Check `cassandra.yaml`: `seed_provider` == `["10.0.1.11"]`          |
+| Triệu chứng               | Nguyên nhân              | Giải pháp                                                            |
+| :------------------------ | :----------------------- | :------------------------------------------------------------------- |
+| `nodetool status` timeout | Cassandra chưa khởi động | Chờ 2-3 phút, check logs.                                            |
+| Status = `DN` (Down)      | Node crash               | `systemctl status cassandra`, check `/var/log/cassandra/system.log`. |
+| `Connection refused`      | Cassandra port không mở  | Check NSG rules (port 7000, 9042).                                   |
+| Gossip error              | Seed node IP sai         | Check `cassandra.yaml`: `seed_provider` == `["10.0.1.11"]`.          |
 
 ---
 
@@ -780,9 +765,9 @@ ssh db1 "nodetool info"
 
 Bây giờ infrastructure OK, cần:
 
-- Copy scripts audit/harden (cis-tool.sh) tới cluster
-- Copy configuration files
-- Chuẩn bị backend API (FastAPI) để orchestrate audits
+- Copy scripts audit/harden (cis-tool.sh) tới cluster.
+- Copy configuration files.
+- Chuẩn bị backend API (FastAPI) để orchestrate audits.
 
 **Cách thực hiện:**
 
@@ -881,9 +866,9 @@ sudo systemctl status cis-backend
 
 Audit là **đánh giá tình trạng** cluster so với CIS Benchmark. Cần chạy toàn bộ 20 checks để:
 
-- Biết node nào chưa compliant
-- Chuẩn bị cho bước hardening
-- Lưu baseline report
+- Biết node nào chưa compliant.
+- Chuẩn bị cho bước hardening.
+- Lưu baseline report.
 
 **Cách thực hiện:**
 
@@ -983,10 +968,10 @@ git push origin feat/integrated-nguyen-updates
 
 Firewall (NSG) là lớp bảo vệ đầu tiên. Cần verify:
 
-- SSH chỉ từ whitelisted IPs
-- Inter-node traffic được phép
-- Cassandra ports không bị expose ra internet
-- Logging enabled (để audit attacks)
+- SSH chỉ từ whitelisted IPs.
+- Inter-node traffic được phép.
+- Cassandra ports không bị expose ra internet.
+- Logging enabled (để audit attacks).
 
 **Cách thực hiện:**
 
@@ -1077,25 +1062,25 @@ ssh -i ssh/cis_key cassandra@$MASTER_IP "nc -zv 10.0.1.11 9042"
 
 | Bước      | Tiêu đề                   | Tài nguyên chính          | Thời gian      |
 | :-------- | :------------------------ | :------------------------ | :------------- |
-| 0         | Thiết lập biến môi trường | SSH key, terraform.tfvars | ~8 phút        |
-| 1         | Tạo Resource Group        | Azure RG                  | ~1 phút        |
-| 2         | Khởi tạo Terraform        | `.terraform/`             | ~1 phút        |
-| 3         | Validate Terraform        | Syntax checks             | ~1 phút        |
-| 4         | **Deploy infrastructure** | VNet, VMs, NSG            | **10-15 phút** |
-| 5         | Kiểm tra state            | terraform.tfstate         | ~1 phút        |
-| 6         | SSH post-config           | Master node setup         | ~5 phút        |
-| 7         | Verify Cassandra          | nodetool status           | ~5 phút        |
-| 8         | Clone repo & setup        | /opt/cis/, backend        | ~5 phút        |
-| 9         | Audit cluster             | Baseline report           | ~10 phút       |
-| 10        | Verify security           | NSG rules, flow logs      | ~5 phút        |
-| **TOTAL** |                           |                           | **~59 phút**   |
+| 0         | Thiết lập biến môi trường | SSH key, terraform.tfvars | ~8 phút.       |
+| 1         | Tạo Resource Group        | Azure RG                  | ~1 phút.       |
+| 2         | Khởi tạo Terraform        | `.terraform/`             | ~1 phút.       |
+| 3         | Validate Terraform        | Syntax checks             | ~1 phút.       |
+| 4         | **Deploy infrastructure** | VNet, VMs, NSG            | **10-15 phút.** |
+| 5         | Kiểm tra state            | terraform.tfstate         | ~1 phút.       |
+| 6         | SSH post-config           | Master node setup         | ~5 phút.       |
+| 7         | Verify Cassandra          | nodetool status           | ~5 phút.       |
+| 8         | Clone repo & setup        | /opt/cis/, backend        | ~5 phút.       |
+| 9         | Audit cluster             | Baseline report           | ~10 phút.      |
+| 10        | Verify security           | NSG rules, flow logs      | ~5 phút.       |
+| **TOTAL** |                           |                           | **~59 phút.**  |
 
 **Chi phí Azure (ước tính hàng tháng):**
 
-- 4 VMs × $15/tháng (B2 series) = $60
-- Storage (30GB × 3) × $0.0124/GB = ~$1
-- Network egress: ~$0 (internal)
-- **TOTAL: ~$61/tháng** (rẻ cho dev/test)
+- 4 VMs × $15/tháng (B2 series) = $60.
+- Storage (30GB × 3) × $0.0124/GB = ~$1.
+- Network egress: ~$0 (internal).
+- **TOTAL: ~$61/tháng** (rẻ cho dev/test).
 
 ---
 

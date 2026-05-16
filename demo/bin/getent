@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Mock getent for Demo
+if [[ "$1" == "passwd" && "$2" == "cassandra" ]]; then
+    if [[ -f "/tmp/mock_cassandra_user_exists" ]]; then
+        echo "cassandra:x:999:999::/home/cassandra:/bin/false"
+        exit 0
+    else
+        exit 1
+    fi
+fi
+if [[ "$1" == "group" && "$2" == "cassandra" ]]; then
+    if [[ -f "/tmp/mock_cassandra_group_exists" ]]; then
+        echo "cassandra:x:999:"
+        exit 0
+    else
+        exit 1
+    fi
+fi
+exit 1

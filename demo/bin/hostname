@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Mock hostname for Demo
+if [[ "$1" == "-I" ]]; then
+    echo "192.168.1.100"
+else
+    echo "demo-node"
+fi

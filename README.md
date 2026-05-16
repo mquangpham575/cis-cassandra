@@ -121,6 +121,37 @@ For future AI agents or developers continuing this project:
 
 ---
 
+## 🧪 Demo & Testing
+We have provided 3 distinct demo scenarios to showcase the tool's capabilities in a safe, mock environment. No Cassandra installation or root access is required for these demos.
+
+### Demo 1: Compliance Baseline Audit
+Scans a mock vulnerable configuration and identifies security gaps.
+```bash
+bash demo/demo_audit.sh
+```
+
+### Demo 2: "Fix-it-Fast" Hardening
+Demonstrates the automated remediation process from FAIL to PASS.
+```bash
+bash demo/demo_harden.sh
+```
+
+### Demo 3: Analytics & Reporting
+Simulates a multi-node audit and generates JSON/CSV reports.
+```bash
+bash demo/demo_report.sh
+```
+
+## 🚀 CI/CD Pipeline
+The project includes a comprehensive GitHub Actions pipeline (`.github/workflows/cis-audit.yml`) that performs:
+- Bash syntax linting & Shellcheck.
+- Backend (FastAPI) unit tests.
+- Frontend (React/Vite) build & tests.
+- SAST Security Scanning (Bandit, Trivy).
+- **Security Gate**: Blocks merges if CRITICAL CIS violations are detected.
+
+---
+
 ## 📚 References
 - [CIS Apache Cassandra 4.0 Benchmark v1.3.0](https://www.cisecurity.org/benchmark/apache_cassandra)
 - [NIST SP 800-53 (AC/AU Controls)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
