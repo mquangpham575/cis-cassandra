@@ -7,7 +7,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import audit, remediate, nodes, metrics, report, notes, cluster
+from routers import audit, remediate, nodes, metrics, report, notes, cluster, harden
 from ws_endpoints.audit_ws import audit_websocket_handler
 from services.ssh import ssh_service
 from services.cassandra_store import notes_store
@@ -62,6 +62,7 @@ app.include_router(nodes.router)
 app.include_router(cluster.router)
 app.include_router(audit.router)
 app.include_router(remediate.router)
+app.include_router(harden.router)
 app.include_router(metrics.router)
 app.include_router(report.router)
 app.include_router(notes.router)
