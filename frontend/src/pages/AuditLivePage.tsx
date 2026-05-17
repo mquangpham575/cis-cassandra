@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuditStream } from '../hooks/useAuditStream'
 import { api } from '../api'
-import type { NodeStatus } from '../types'
+import type { AuditReport, NodeStatus } from '../types'
 
 const SECTIONS = [
   { value: 'all', label: 'All Sections' },
@@ -21,6 +21,23 @@ function lineColor(line: string): string {
   return 'text-gray-300'
 }
 
+async function downloadAuditExcel(report: AuditReport) {
+  try {
+    const blob = await api.exportAudit(report.node)
+    const fileName = `audit-${report.node}-${new Date(report.timestamp).toISOString().replace(/[:.]/g, '-')}.xlsx`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Export failed', e)
+  }
+}
+
 export function AuditLivePage() {
   const [nodes, setNodes] = useState<NodeStatus[]>([])
   const [selectedIp, setSelectedIp] = useState<string>('')
@@ -37,7 +54,6 @@ export function AuditLivePage() {
         if (s.length > 0 && !selectedIp) setSelectedIp(s[0].ip)
       })
       .catch(() => {
-        // Fallback to config defaults if API unreachable
         const defaults = ['10.0.1.11', '10.0.1.12', '10.0.1.13']
         setNodes(defaults.map(ip => ({ ip, reachable: false, cassandra_running: false, latency_ms: null })))
         setSelectedIp(defaults[0])
@@ -73,7 +89,6 @@ export function AuditLivePage() {
       `Starting audit on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
       '',
     ])
-    // Pass onLine callback — each raw SSE message appended directly to terminal
     startStream(selectedIp, selectedSection, (raw: string) => {
       setLines(prev => [...prev, raw])
     })
@@ -86,7 +101,13 @@ export function AuditLivePage() {
 
   const handleClear = () => setLines([])
 
+  const handleExport = () => {
+    if (state.status !== 'done') return
+    void downloadAuditExcel(state.report)
+  }
+
   const isStreaming = state.status === 'streaming'
+  const canExport = state.status === 'done'
 
   return (
     <div className="space-y-4">
@@ -154,6 +175,14 @@ export function AuditLivePage() {
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm transition-colors"
           >
             Clear
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!canExport || isStreaming}
+            title={canExport ? 'Export the last completed audit to Excel' : 'Run an audit first to enable export'}
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+          >
+            Export to Excel
           </button>
         </div>
       </div>

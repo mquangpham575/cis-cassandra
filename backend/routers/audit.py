@@ -2,6 +2,12 @@ import asyncio
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.responses import FileResponse
+import tempfile
+import json
+import importlib.util
+import os
+import time
 
 from models.audit import AuditReport, ClusterAuditReport
 from services.ssh import ssh_service
@@ -130,3 +136,67 @@ async def get_latest_audit(node_ip: str):
         )
 
     return report
+
+
+@router.get("/{node_ip}/export")
+async def export_latest_audit(node_ip: str):
+    """
+    Export the latest cached audit for `node_ip` to an Excel file using scripts/export_excel.py
+    Returns the generated .xlsx as a file response.
+    """
+    if node_ip not in settings.node_ips:
+        raise HTTPException(status_code=404, detail=f"Node {node_ip} not found")
+
+    report = _audit_cache.get(node_ip)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"No cached audit for {node_ip}")
+
+    # Build lines compatible with scripts/export_excel.py expectations
+    entries = []
+    for check in report.checks:
+        entries.append({
+            "node": report.node,
+            "check_id": getattr(check, 'check_id', ''),
+            "title": getattr(check, 'title', ''),
+            "status": getattr(check, 'status', ''),
+            "severity": getattr(check, 'severity', ''),
+            "current_value": getattr(check, 'current_value', '') or "",
+            "expected_value": getattr(check, 'expected_value', '') or "",
+            "remediation": getattr(check, 'remediation', '') or "",
+        })
+
+    # Temp files
+    ts = int(time.time())
+    tmp_dir = tempfile.gettempdir()
+    json_path = os.path.join(tmp_dir, f"audit_export_{node_ip.replace('.', '_')}_{ts}.json")
+    xlsx_path = os.path.join(tmp_dir, f"audit_export_{node_ip.replace('.', '_')}_{ts}.xlsx")
+
+    # Write newline-delimited JSON as expected by export_excel
+    with open(json_path, 'w', encoding='utf-8') as jf:
+        for obj in entries:
+            jf.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    # Dynamically load scripts/export_excel.py and call export_to_excel
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    # repo_root currently points to backend/.. -> project root
+    script_path = os.path.abspath(os.path.join(repo_root, '..', 'scripts', 'export_excel.py'))
+    if not os.path.exists(script_path):
+        # try alternative relative path
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts', 'export_excel.py'))
+
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=500, detail=f"export_excel.py not found at {script_path}")
+
+    spec = importlib.util.spec_from_file_location("export_excel", script_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    try:
+        mod.export_to_excel(json_path, xlsx_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+
+    if not os.path.exists(xlsx_path):
+        raise HTTPException(status_code=500, detail="Export did not produce an xlsx file")
+
+    return FileResponse(xlsx_path, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=os.path.basename(xlsx_path))

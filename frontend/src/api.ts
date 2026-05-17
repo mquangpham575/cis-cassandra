@@ -3,9 +3,18 @@ import type {
 } from './types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
+const API_SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY?.trim()
+
+function authHeaders(): HeadersInit {
+  return API_SECRET_KEY
+    ? { Authorization: `Bearer ${API_SECRET_KEY}` }
+    : {}
+}
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
+  const res = await fetch(`${BASE}${path}`, {
+    headers: authHeaders(),
+  })
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   return res.json() as Promise<T>
 }
@@ -13,8 +22,33 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
     body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
   return res.json() as Promise<T>
@@ -30,6 +64,13 @@ export const api = {
     post<HardenResult>(`/api/harden/node/${ip}`, req),
   auditStreamUrl: (ip: string, section = 'all') =>
     `${BASE}/api/audit/stream/${ip}?section=${encodeURIComponent(section)}`,
+  exportAudit: async (ip: string) => {
+    const res = await fetch(`${BASE}/api/audit/${encodeURIComponent(ip)}/export`, {
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    return res.blob()
+  },
 
   // Notes API
   getNotes: () => get<Note[]>('/api/notes'),
@@ -37,22 +78,4 @@ export const api = {
   updateNote: (id: string, note: Partial<Note>) =>
     put<Note>(`/api/notes/${id}`, note),
   deleteNote: (id: string) => del<{ deleted: boolean }>(`/api/notes/${id}`),
-}
-
-async function put<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-  return res.json() as Promise<T>
-}
-
-async function del<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'DELETE',
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-  return res.json() as Promise<T>
 }
