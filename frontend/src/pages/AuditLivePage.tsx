@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuditStream } from '../hooks/useAuditStream'
 import { api } from '../api'
 import type { AuditReport, NodeStatus } from '../types'
-import * as XLSX from 'xlsx'
 
 const SECTIONS = [
   { value: 'all', label: 'All Sections' },
@@ -26,42 +25,21 @@ function safeSheetName(name: string) {
   return name.replace(/[\\/?*\[\]:]/g, '-').slice(0, 31)
 }
 
-function exportAuditToExcel(report: AuditReport, lines: string[]) {
-  const workbook = XLSX.utils.book_new()
-
-  const summaryRows = [
-    { field: 'Node', value: report.node },
-    { field: 'Timestamp', value: report.timestamp },
-    { field: 'Total Checks', value: report.score.total },
-    { field: 'Automated', value: report.score.automated },
-    { field: 'Manual', value: report.score.manual },
-    { field: 'Passed', value: report.score.passed },
-    { field: 'Failed', value: report.score.failed },
-    { field: 'Needs Review', value: report.score.needs_review },
-    { field: 'Compliance %', value: report.score.compliance_pct },
-  ]
-  const summarySheet = XLSX.utils.json_to_sheet(summaryRows)
-  XLSX.utils.book_append_sheet(workbook, summarySheet, safeSheetName('Summary'))
-
-  const checksSheet = XLSX.utils.json_to_sheet(report.checks.map(check => ({
-    ID: check.id,
-    Title: check.title,
-    Status: check.status,
-    Type: check.type,
-    Section: check.section,
-    Evidence: check.evidence,
-    Remediable: check.remediable ? 'Yes' : 'No',
-  })))
-  XLSX.utils.book_append_sheet(workbook, checksSheet, safeSheetName('Checks'))
-
-  const logSheet = XLSX.utils.json_to_sheet(lines.map((line, index) => ({
-    Line: index + 1,
-    Text: line,
-  })))
-  XLSX.utils.book_append_sheet(workbook, logSheet, safeSheetName('Raw Output'))
-
-  const fileName = `audit-${report.node}-${new Date(report.timestamp).toISOString().replace(/[:.]/g, '-')}.xlsx`
-  XLSX.writeFile(workbook, fileName)
+async function downloadAuditExcel(report: AuditReport) {
+  try {
+    const blob = await api.exportAudit(report.node)
+    const fileName = `audit-${report.node}-${new Date(report.timestamp).toISOString().replace(/[:.]/g, '-')}.xlsx`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Export failed', e)
+  }
 }
 
 export function AuditLivePage() {
@@ -131,7 +109,7 @@ export function AuditLivePage() {
 
   const handleExport = () => {
     if (state.status !== 'done') return
-    exportAuditToExcel(state.report, lines)
+    void downloadAuditExcel(state.report)
   }
 
   const isStreaming = state.status === 'streaming'

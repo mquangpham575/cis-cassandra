@@ -121,6 +121,13 @@ export const api = {
     post<HardenResult>(`/api/harden/node/${ip}`, req),
   auditStreamUrl: (ip: string, section = 'all') =>
     `/ws/audit/${ip}?section=${encodeURIComponent(section)}`,
+  exportAudit: async (ip: string) => {
+    const res = await fetch(`${BASE}/api/audit/${encodeURIComponent(ip)}/export`, {
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    return res.blob()
+  },
   // Notes CRUD
   getNotes: () => get<import('./types').Note[]>('/api/notes'),
   createNote: (payload: Partial<import('./types').Note>) => post<import('./types').Note>('/api/notes', payload),
