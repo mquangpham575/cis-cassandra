@@ -121,14 +121,14 @@ python3 ~/cis-cassandra/scripts/export_excel.py
 
 ### **Bước 1: Gây lỗi đồng thời trên cả 3 Node database**
 ```bash
-# Phá cấu hình Data Center Auth & max_map_count trên Node 1 (10.0.1.11)
+# Phá cấu hình Data Center Auth (3.6) & max_map_count (OS.7) trên Node 1 (10.0.1.11)
 ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sed -i 's/^network_authorizer.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml && sudo sysctl -w vm.max_map_count=65530"
 
-# Phá cấu hình Logging Level & Data Center Auth trên Node 2 (10.0.1.12)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml && sudo sed -i 's/^network_authorizer.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml"
+# Phá cấu hình Logging Level (4.1) & TCP Keepalive (OS.4) trên Node 2 (10.0.1.12)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml && sudo sysctl -w net.ipv4.tcp_keepalive_time=7200"
 
-# Phá cấu hình max_map_count & Logging Level trên Node 3 (10.0.1.13)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w vm.max_map_count=65530 && sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml"
+# Phá cấu hình Auditing (4.2) & File Permissions (OS.2) trên Node 3 (10.0.1.13)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sed -i '/^audit_logging_options:/,/enabled:/ s/enabled: true/enabled: false/' /etc/cassandra/cassandra.yaml && sudo chmod 777 /etc/cassandra/cassandra.yaml"
 ```
 *(Nếu bạn kiểm tra giao diện Dashboard UI lúc này, điểm số của cả 3 Node sẽ đồng loạt giảm sút)*
 
