@@ -62,6 +62,8 @@ export const api = {
     get<AuditReport>(`/api/audit/node/${ip}?section=${encodeURIComponent(section)}`),
   hardenNode: (ip: string, req: HardenRequest) =>
     post<HardenResult>(`/api/harden/node/${ip}`, req),
+  hardenCluster: (req: HardenRequest) =>
+    post<HardenResult[]>('/api/harden/cluster', req),
   auditStreamUrl: (ip: string, section = 'all') => {
     const wsBase = BASE ? BASE.replace(/^http/, 'ws') : (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host
     return `${wsBase}/ws/audit/${ip}?section=${encodeURIComponent(section)}`

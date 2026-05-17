@@ -13,6 +13,7 @@ export function CompliancePage() {
   const [nodeStatuses, setNodeStatuses] = useState<NodeStatus[]>([])
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [remediating, setRemediating] = useState<string | null>(null)
+  const [hardening, setHardening] = useState<boolean>(false)
   // C3: Track status fetch failures so the UI can warn the user
   const [statusError, setStatusError] = useState<boolean>(false)
 
@@ -24,6 +25,18 @@ export function CompliancePage() {
   }, [])
 
   const handleRunAudit = () => runAudit('all')
+
+  const handleHardenCluster = async () => {
+    setHardening(true)
+    try {
+      await api.hardenCluster({ section: 'all', dry_run: false })
+      await runAudit('all')
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setHardening(false)
+    }
+  }
 
   const handleRemediate = async (nodeIp: string, checkId: string) => {
     setRemediating(`${nodeIp}-${checkId}`)
@@ -50,13 +63,22 @@ export function CompliancePage() {
           <h2 className="text-xl font-bold">CIS Benchmark Compliance</h2>
           <p className="text-sm text-gray-400 mt-0.5">CIS Apache Cassandra 4.0 Benchmark v1.3.0</p>
         </div>
-        <button
-          onClick={handleRunAudit}
-          disabled={state.status === 'loading'}
-          className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors"
-        >
-          {state.status === 'loading' ? '⟳ Auditing…' : '▶ Run Audit'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRunAudit}
+            disabled={state.status === 'loading' || hardening}
+            className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
+          >
+            {state.status === 'loading' ? 'Auditing…' : 'Run Audit'}
+          </button>
+          <button
+            onClick={handleHardenCluster}
+            disabled={state.status === 'loading' || hardening}
+            className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
+          >
+            {hardening ? 'Hardening…' : 'Harden'}
+          </button>
+        </div>
       </div>
 
       {/* C3: Backend connectivity warning */}
@@ -170,10 +192,12 @@ export function CompliancePage() {
       )}
 
       <AuditProgress state={streamState} />
-      {remediating && (
+      {(remediating || hardening) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 text-sm">
-            <p className="animate-pulse">🔧 Remediating {remediating}…</p>
+            <p className="animate-pulse">
+              {hardening ? '🔧 Hardening all nodes in cluster…' : `🔧 Remediating ${remediating}…`}
+            </p>
           </div>
         </div>
       )}

@@ -8,7 +8,7 @@ import type { Tab } from './types'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '' },
   { id: 'notes', label: 'Notes', icon: '' },
-  { id: 'compliance', label: 'Compliance', icon: '' },
+  { id: 'compliance', label: 'Cluster Compliance', icon: '' },
   { id: 'audit-live', label: 'Audit Live', icon: '' },
 ]
 
