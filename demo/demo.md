@@ -44,74 +44,74 @@ python3 ~/cis-cassandra/scripts/export_excel.py
 
 ---
 
-## ⚡ DEMO 2: TỐI ƯU KERNEL (SWAPPINESS) - TARGET NODE 1 (10.0.1.11)
+## ⚡ DEMO 2: TỐI ƯU KERNEL (SWAPPINESS) - TARGET NODE 2 (10.0.1.12)
 
 ### **Bước 1: Đưa cấu hình swappiness về mặc định (Lỗi hiệu năng)**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sysctl -w vm.swappiness=60"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sysctl -w vm.swappiness=60"
 ```
 *Kiểm tra thông số hiện tại:*
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sysctl vm.swappiness"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sysctl vm.swappiness"
 # Mong đợi output: vm.swappiness = 60
 ```
 
 ### **Bước 2: Quét kiểm toán phát hiện lỗi hiệu năng**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*6" -A 5
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*6" -A 5
 ```
 *Kết quả:* Vi phạm được phát hiện do Cassandra yêu cầu `vm.swappiness` cực thấp (nhỏ hơn hoặc bằng 10).
 
 ### **Bước 3: Tự động tối ưu hóa hệ thống (Harden)**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh harden --section os"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo bash ~/cis-tool/cis-tool.sh harden --section os"
 ```
 
 ### **Bước 4: Xác minh lại thông số Swappiness**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*6" -A 5
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*6" -A 5
 ```
 *Kết quả:* `vm.swappiness` đã được đưa về cấu hình tối ưu khuyến nghị (`1` hoặc `10`).
 
 ### **Bước 5: Xuất báo cáo Excel**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo NO_JSON= bash ~/cis-tool/cis-tool.sh audit --section os" | grep "^{" > /tmp/cis_results.json
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo NO_JSON= bash ~/cis-tool/cis-tool.sh audit --section os" | grep "^{" > /tmp/cis_results.json
 python3 ~/cis-cassandra/scripts/export_excel.py
 ```
 
 ---
 
-## 🌐 DEMO 3: BẢO MẬT MẠNG (DISABLE IPV6) - TARGET NODE 1 (10.0.1.11)
+## 🌐 DEMO 3: BẢO MẬT MẠNG (DISABLE IPV6) - TARGET NODE 3 (10.0.1.13)
 
 ### **Bước 1: Bật IPv6 (Không khuyến nghị cho hạ tầng Cassandra)**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0"
 ```
 *Kiểm tra trạng thái hiện tại:*
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sysctl net.ipv6.conf.all.disable_ipv6"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sysctl net.ipv6.conf.all.disable_ipv6"
 # Mong đợi output: 0 (có nghĩa là IPv6 đang được bật)
 ```
 
 ### **Bước 2: Quét kiểm toán phát hiện vi phạm bảo mật mạng**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
 ```
 
 ### **Bước 3: Tự động vô hiệu hóa IPv6 (Harden)**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh harden --section os"
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo bash ~/cis-tool/cis-tool.sh harden --section os"
 ```
 
 ### **Bước 4: Xác minh lại trạng thái vô hiệu hóa mạng**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
 ```
 *Kết quả:* IPv6 đã được vô hiệu hóa hoàn toàn (`disable_ipv6 = 1`).
 
 ### **Bước 5: Xuất báo cáo Excel**
 ```bash
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo NO_JSON= bash ~/cis-tool/cis-tool.sh audit --section os" | grep "^{" > /tmp/cis_results.json
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo NO_JSON= bash ~/cis-tool/cis-tool.sh audit --section os" | grep "^{" > /tmp/cis_results.json
 python3 ~/cis-cassandra/scripts/export_excel.py
 ```
 
