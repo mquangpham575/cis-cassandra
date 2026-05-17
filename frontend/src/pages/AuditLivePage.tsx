@@ -10,6 +10,7 @@ const SECTIONS = [
   { value: '3', label: 'Section 3 — Authorization' },
   { value: '4', label: 'Section 4 — Logging' },
   { value: '5', label: 'Section 5 — Encryption' },
+  { value: 'os', label: 'Section OS — OS Hardening' },
 ]
 
 function lineColor(line: string): string {
