@@ -214,7 +214,7 @@ export function AuditLivePage() {
                 disabled={!selectedIp || isHardening}
                 className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors"
               >
-                ▶ Start Audit
+                Start Audit
               </button>
               <button
                 onClick={handleHarden}
@@ -227,7 +227,7 @@ export function AuditLivePage() {
                     Hardening...
                   </>
                 ) : (
-                  <>⚡ Harden</>
+                  <>Harden</>
                 )}
               </button>
             </>
