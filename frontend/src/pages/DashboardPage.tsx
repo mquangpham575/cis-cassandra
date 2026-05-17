@@ -96,7 +96,7 @@ export function DashboardPage() {
           disabled={loading}
           className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors"
         >
-          {loading ? '⟳ Auditing…' : '▶ Audit All Nodes'}
+          {loading ? 'Auditing…' : 'Audit All Nodes'}
         </button>
       </div>
 

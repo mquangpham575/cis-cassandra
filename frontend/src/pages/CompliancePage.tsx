@@ -74,7 +74,7 @@ export function CompliancePage() {
           <button
             onClick={handleHardenCluster}
             disabled={state.status === 'loading' || hardening}
-            className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
+            className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
           >
             {hardening ? 'Hardening…' : 'Harden'}
           </button>
