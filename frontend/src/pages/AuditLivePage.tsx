@@ -43,9 +43,10 @@ export function AuditLivePage() {
   const [selectedIp, setSelectedIp] = useState<string>('')
   const [selectedSection, setSelectedSection] = useState('all')
   const [lines, setLines] = useState<string[]>([])
+  const [isHardening, setIsHardening] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
   const { state, startStream, stop } = useAuditStream()
-
+ 
   // Load node list on mount
   useEffect(() => {
     api.clusterStatus()
@@ -94,6 +95,59 @@ export function AuditLivePage() {
     })
   }
 
+  const handleHarden = async () => {
+    if (!selectedIp) return
+    setIsHardening(true)
+    setLines([
+      `$ cis-tool.sh --harden --section ${selectedSection} --node ${selectedIp}`,
+      `Running automated hardening on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
+      'Applying CIS recommended hardening controls...',
+      '',
+    ])
+
+    try {
+      const res = await api.hardenNode(selectedIp, {
+        section: selectedSection,
+        dry_run: false,
+      })
+      
+      const outLines = res.stdout ? res.stdout.split('\n') : []
+      const errLines = res.stderr ? res.stderr.split('\n') : []
+      
+      setLines(prev => [
+        ...prev,
+        ...outLines,
+        ...errLines,
+        '─────────────────────────────────────',
+        res.success 
+          ? `✅ Hardening completed successfully! (Exit code: ${res.exit_code})`
+          : `❌ Hardening failed! (Exit code: ${res.exit_code})`,
+        '─────────────────────────────────────',
+        '🔄 Auto-triggering fresh audit to verify compliance...',
+        '',
+      ])
+
+      // Auto-trigger audit after 1.5s
+      setTimeout(() => {
+        setLines([
+          `$ cis-tool.sh --audit --section ${selectedSection} --node ${selectedIp}`,
+          `Starting verification audit on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
+          '',
+        ])
+        startStream(selectedIp, selectedSection, (raw: string) => {
+          setLines(prev => [...prev, raw])
+        })
+      }, 1500)
+    } catch (e: any) {
+      setLines(prev => [
+        ...prev,
+        `❌ Error invoking hardening API: ${e.message || String(e)}`,
+      ])
+    } finally {
+      setIsHardening(false)
+    }
+  }
+
   const handleStop = () => {
     stop()
     setLines(prev => [...prev, '', '⏹ Audit stopped by user.'])
@@ -125,7 +179,7 @@ export function AuditLivePage() {
           <select
             value={selectedIp}
             onChange={e => setSelectedIp(e.target.value)}
-            disabled={isStreaming}
+            disabled={isStreaming || isHardening}
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-200 disabled:opacity-50 focus:outline-none focus:border-brand-500"
           >
             {nodes.map(n => (
@@ -142,7 +196,7 @@ export function AuditLivePage() {
           <select
             value={selectedSection}
             onChange={e => setSelectedSection(e.target.value)}
-            disabled={isStreaming}
+            disabled={isStreaming || isHardening}
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 disabled:opacity-50 focus:outline-none focus:border-brand-500"
           >
             {SECTIONS.map(s => (
@@ -154,13 +208,29 @@ export function AuditLivePage() {
         {/* Action buttons */}
         <div className="flex gap-2 ml-auto items-end pb-0.5">
           {!isStreaming ? (
-            <button
-              onClick={handleStart}
-              disabled={!selectedIp}
-              className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors"
-            >
-              ▶ Start Audit
-            </button>
+            <>
+              <button
+                onClick={handleStart}
+                disabled={!selectedIp || isHardening}
+                className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors"
+              >
+                ▶ Start Audit
+              </button>
+              <button
+                onClick={handleHarden}
+                disabled={!selectedIp || isHardening}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-semibold transition-colors flex items-center gap-1.5"
+              >
+                {isHardening ? (
+                  <>
+                    <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                    Hardening...
+                  </>
+                ) : (
+                  <>⚡ Harden</>
+                )}
+              </button>
+            </>
           ) : (
             <button
               onClick={handleStop}
@@ -171,14 +241,14 @@ export function AuditLivePage() {
           )}
           <button
             onClick={handleClear}
-            disabled={isStreaming}
+            disabled={isStreaming || isHardening}
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm transition-colors"
           >
             Clear
           </button>
           <button
             onClick={handleExport}
-            disabled={!canExport || isStreaming}
+            disabled={!canExport || isStreaming || isHardening}
             title={canExport ? 'Export the last completed audit to Excel' : 'Run an audit first to enable export'}
             className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-sm font-semibold transition-colors"
           >
