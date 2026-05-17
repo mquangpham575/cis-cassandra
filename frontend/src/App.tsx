@@ -49,10 +49,7 @@ export default function App() {
               ))}
             </div>
 
-            {/* Version badge */}
-            <span className="text-xs text-gray-500 font-mono hidden sm:block">
-              v1.3.0
-            </span>
+
           </div>
         </div>
       </nav>

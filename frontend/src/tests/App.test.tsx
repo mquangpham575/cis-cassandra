@@ -48,8 +48,5 @@ describe('App', () => {
     expect(screen.getByTestId('notes-page')).toBeInTheDocument()
   })
 
-  it('shows version badge', () => {
-    render(<App />)
-    expect(screen.getByText('v1.3.0')).toBeInTheDocument()
-  })
+
 })
