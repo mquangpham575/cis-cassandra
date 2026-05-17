@@ -2,6 +2,19 @@
 
 Tài liệu này cung cấp các lệnh terminal chính xác để bạn tự chạy và kiểm chứng từng bước của cả 4 Demo bảo mật từ máy quản trị **Master VM** (`cassandra@cis-cassandra-master`).
 
+### 🔑 Bước chuẩn bị kết nối từ Laptop cá nhân của bạn:
+
+1. **Terminal 1 - Mở SSH Tunnel để truy cập Web Dashboard:**
+   ```bash
+   ssh -i C:\Users\QUANG\.ssh\cis_key -L 8000:127.0.0.1:8000 cassandra@4.194.10.192
+   ```
+   *(Lệnh này giúp chuyển hướng cổng API 8000 từ VM về máy cá nhân để tải mượt mà toàn bộ dữ liệu trên trình duyệt tại `http://localhost:5173` hoặc `http://localhost:3000`)*
+
+2. **Terminal 2 - Kết nối SSH thông thường để chạy lệnh CLI dưới đây:**
+   ```bash
+   ssh -i C:\Users\QUANG\.ssh\cis_key cassandra@4.194.10.192
+   ```
+
 ---
 
 ## 🔒 DEMO 1: BẢO MẬT SSH (PERMIT ROOT LOGIN) - TARGET NODE 1 (10.0.1.11)
