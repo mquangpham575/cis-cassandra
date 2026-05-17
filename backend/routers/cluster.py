@@ -18,7 +18,7 @@ def _check_node(ip: str) -> NodeStatus:
     reachable, latency = ssh_runner.check_reachable(ip)
     cassandra_running = False
     if reachable:
-        result = ssh_runner.run(ip, "systemctl is-active cassandra 2>/dev/null", timeout=10)
+        result = ssh_runner.run(ip, "pgrep -f org.apache.cassandra.service.CassandraDaemon >/dev/null && echo active || systemctl is-active cassandra 2>/dev/null", timeout=10)
         cassandra_running = result.stdout.strip() == "active"
     return NodeStatus(
         ip=ip,
