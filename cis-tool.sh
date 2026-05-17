@@ -65,7 +65,14 @@ for script in $(find "$SEARCH_DIR" -name "check_*.sh" | sort); do
         if [[ "$status" == "PASS" ]]; then log_ok "Hạng mục này đạt yêu cầu."; elif [[ "$status" == "MANUAL" ]]; then log_manual "Cần kiểm tra thủ công. Gợi ý: ${remediation}"; else log_warn "Vi phạm an ninh detected!"; echo -e "     ${YELLOW}👉 FIX:${NC} ${remediation}"; fi
         echo "$audit_json" >> "$RESULTS_FILE"
     elif [[ "$MODE" == "harden" ]]; then
-        harden_${check_num}
+        if [[ "$status" == "PASS" ]]; then
+            echo -e "${GREEN}[✔] SKIP:${NC} ID ${check_num//_/./} (${title}) đã đạt yêu cầu."
+        elif [[ "$status" == "MANUAL" ]]; then
+            echo -e "${CYAN}[?] SKIP:${NC} ID ${check_num//_/./} (${title}) yêu cầu cấu hình thủ công."
+        else
+            echo -e "${YELLOW}[!] HARDEN:${NC} ID ${check_num//_/./} (${title}) vi phạm. Đang tự động khắc phục..."
+            harden_${check_num}
+        fi
     fi
 done
 

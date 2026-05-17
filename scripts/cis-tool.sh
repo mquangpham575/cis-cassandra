@@ -60,7 +60,16 @@ run_task() {
             if [[ "$mode" == "verify" ]]; then
                 verify_${suffix} >> "$TMPFILE"
             elif [[ "$mode" == "harden" ]]; then
-                harden_${suffix}
+                local audit_res
+                audit_res=$(audit_${suffix} 2>/dev/null || echo "")
+                if echo "$audit_res" | grep -q '"status":"PASS"'; then
+                    echo -e "${GREEN}[✔] SKIP:${NC} Hạng mục ID ${suffix//_/./} đã đạt yêu cầu."
+                elif echo "$audit_res" | grep -q '"status":"MANUAL"'; then
+                    echo -e "${CYAN}[?] SKIP:${NC} Hạng mục ID ${suffix//_/./} yêu cầu cấu hình thủ công."
+                else
+                    echo -e "${YELLOW}[!] HARDEN:${NC} Hạng mục ID ${suffix//_/./} vi phạm. Đang tự động khắc phục..."
+                    harden_${suffix}
+                fi
             else
                 audit_${suffix} >> "$TMPFILE"
             fi
