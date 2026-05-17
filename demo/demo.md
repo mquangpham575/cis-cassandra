@@ -121,14 +121,14 @@ python3 ~/cis-cassandra/scripts/export_excel.py
 
 ### **Bước 1: Gây lỗi đồng thời trên cả 3 Node database**
 ```bash
-# Phá cấu hình SSH trên Node 1 (10.0.1.11)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd"
+# Phá cấu hình Swappiness & max_map_count trên Node 1 (10.0.1.11)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sysctl -w vm.swappiness=60 && sudo sysctl -w vm.max_map_count=65530"
 
-# Phá cấu hình Swappiness trên Node 2 (10.0.1.12)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sysctl -w vm.swappiness=60"
+# Phá cấu hình SSH Root Login & Swappiness trên Node 2 (10.0.1.12)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd && sudo sysctl -w vm.swappiness=60"
 
-# Phá cấu hình IPv6 trên Node 3 (10.0.1.13)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0"
+# Phá cấu hình IPv6 & max_map_count trên Node 3 (10.0.1.13)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0 && sudo sysctl -w vm.max_map_count=65530"
 ```
 *(Nếu bạn kiểm tra giao diện Dashboard UI lúc này, điểm số của cả 3 Node sẽ đồng loạt giảm sút)*
 
