@@ -15,19 +15,19 @@ log_header "DEMO 2: QUY TRÌNH KIỂM TOÁN & KHẮC PHỤC LỖI TẬP TRUNG (3
 # BƯỚC 1: GÂY LỖI ĐA DẠNG (BREAK)
 log_info "BƯỚC 1: Đang gây lỗi cấu hình trên toàn cụm để mô phỏng rủi ro thực tế..."
 
-log_warn "-> Đang gây lỗi Swappiness & max_map_count trên Node 1 (10.0.1.11)..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo sysctl -w vm.swappiness=60 && sudo sysctl -w vm.max_map_count=65530" > /dev/null
+log_warn "-> Đang gây lỗi Data Center Auth (3.6) & max_map_count (OS.7) trên Node 1 (10.0.1.11)..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo sed -i 's/^network_authorizer:.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml && sudo sysctl -w vm.max_map_count=65530" > /dev/null
 
-log_warn "-> Đang gây lỗi SSH Root Login & Swappiness trên Node 2 (10.0.1.12)..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.12" "sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd && sudo sysctl -w vm.swappiness=60" > /dev/null
+log_warn "-> Đang gây lỗi Logging Level (4.1) & Data Center Auth (3.6) trên Node 2 (10.0.1.12)..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.12" "sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml && sudo sed -i 's/^network_authorizer:.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml" > /dev/null
 
-log_warn "-> Đang gây lỗi IPv6 & max_map_count trên Node 3 (10.0.1.13)..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.13" "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0 && sudo sysctl -w vm.max_map_count=65530" > /dev/null
+log_warn "-> Đang gây lỗi max_map_count (OS.7) & Logging Level (4.1) trên Node 3 (10.0.1.13)..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.13" "sudo sysctl -w vm.max_map_count=65530 && sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml" > /dev/null
 
 # BƯỚC 2: QUÉT LỖI (AUDIT)
 log_info "BƯỚC 2: Đang kích hoạt Audit toàn cụm để nhận diện các vi phạm bảo mật..."
 # Chỉ grep các ID quan trọng để log không quá dài cho người xem
-bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*7|ID .*8|REPORT FROM NODE" -A 2
+bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3\.6|ID .*4\.1|ID .*OS\.7|REPORT FROM NODE" -A 2
 
 # BƯỚC 3: VÁ LỖI (HARDEN)
 log_info "BƯỚC 4: Kích hoạt Hardening tập trung để vá lỗi cho tất cả các Nodes..."
@@ -36,7 +36,7 @@ log_ok "Hệ thống đã hoàn tất tiến trình tự động khắc phục l
 
 # BƯỚC 4: XÁC MINH (VERIFY)
 log_info "BƯỚC 5: Kiểm toán lại lần cuối để xác nhận tính tuân thủ..."
-bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*7|ID .*8|REPORT FROM NODE" -A 2
+bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3\.6|ID .*4\.1|ID .*OS\.7|REPORT FROM NODE" -A 2
 
 # BƯỚC 5: XUẤT BÁO CÁO (OUTPUT)
 log_info "BƯỚC 6: Tổng hợp dữ liệu và xuất báo cáo Excel cho toàn bộ dự án..."

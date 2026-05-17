@@ -121,32 +121,32 @@ python3 ~/cis-cassandra/scripts/export_excel.py
 
 ### **Bước 1: Gây lỗi đồng thời trên cả 3 Node database**
 ```bash
-# Phá cấu hình Swappiness & max_map_count trên Node 1 (10.0.1.11)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sysctl -w vm.swappiness=60 && sudo sysctl -w vm.max_map_count=65530"
+# Phá cấu hình Data Center Auth & max_map_count trên Node 1 (10.0.1.11)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.11 "sudo sed -i 's/^network_authorizer.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml && sudo sysctl -w vm.max_map_count=65530"
 
-# Phá cấu hình SSH Root Login & Swappiness trên Node 2 (10.0.1.12)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && sudo systemctl restart sshd && sudo sysctl -w vm.swappiness=60"
+# Phá cấu hình Logging Level & Data Center Auth trên Node 2 (10.0.1.12)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.12 "sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml && sudo sed -i 's/^network_authorizer.*/network_authorizer: AllowAllNetworkAuthorizer/' /etc/cassandra/cassandra.yaml"
 
-# Phá cấu hình IPv6 & max_map_count trên Node 3 (10.0.1.13)
-ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0 && sudo sysctl -w vm.max_map_count=65530"
+# Phá cấu hình max_map_count & Logging Level trên Node 3 (10.0.1.13)
+ssh -i ~/.ssh/cis_key -o StrictHostKeyChecking=no cassandra@10.0.1.13 "sudo sysctl -w vm.max_map_count=65530 && sudo sed -i 's/<root level=\"INFO\">/<root level=\"OFF\">/g' /etc/cassandra/logback.xml"
 ```
 *(Nếu bạn kiểm tra giao diện Dashboard UI lúc này, điểm số của cả 3 Node sẽ đồng loạt giảm sút)*
 
 ### **Bước 2: Chạy kiểm toán tập trung toàn cụm từ Master VM**
 ```bash
-sudo bash ~/cis-cassandra/cis-tool.sh audit cluster --section os
+sudo bash ~/cis-cassandra/cis-tool.sh audit cluster
 ```
 *(Lệnh này tự động dispatch quét SSH song song và lưu kết quả JSON tổng hợp tại `scripts/reports/cluster_results.json`)*
 
 ### **Bước 3: Chạy khắc phục tự động tập trung toàn cụm từ Master VM**
 ```bash
-sudo bash ~/cis-cassandra/cis-tool.sh harden cluster --section os
+sudo bash ~/cis-cassandra/cis-tool.sh harden cluster
 ```
 *(Lệnh này kết nối an toàn và tự động khôi phục cấu hình bảo mật tối ưu trên toàn bộ các DB nodes)*
 
 ### **Bước 4: Chạy kiểm toán xác nhận lại trạng thái toàn cụm**
 ```bash
-sudo bash ~/cis-cassandra/cis-tool.sh audit cluster --section os
+sudo bash ~/cis-cassandra/cis-tool.sh audit cluster
 ```
 *(Điểm số trên Dashboard UI lúc này sẽ phục hồi về trạng thái an toàn tuyệt đối)*
 
