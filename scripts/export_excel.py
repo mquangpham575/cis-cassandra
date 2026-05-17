@@ -86,9 +86,15 @@ def export_to_excel(json_path, output_path):
             worksheet.column_dimensions['F'].width = 30
             worksheet.column_dimensions['G'].width = 50
 
-    print(f"[OK] Báo cáo Excel đã được xuất thành công: {output_path}")
+    try:
+        print(f"[OK] Báo cáo Excel đã được xuất thành công: {output_path}")
+    except UnicodeEncodeError:
+        print(f"[OK] Excel report successfully exported to: {output_path}")
 
 if __name__ == "__main__":
-    JSON_FILE = "scripts/reports/cluster_results.json"
-    OUTPUT_FILE = "CIS_Cassandra_Compliance_Report.xlsx"
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    JSON_FILE = os.path.join(BASE_DIR, "scripts/reports/cluster_results.json")
+    if not os.path.exists(JSON_FILE) or os.path.getsize(JSON_FILE) == 0:
+        JSON_FILE = "/tmp/cis_results.json"
+    OUTPUT_FILE = os.path.join(BASE_DIR, "CIS_Cassandra_Compliance_Report.xlsx")
     export_to_excel(JSON_FILE, OUTPUT_FILE)

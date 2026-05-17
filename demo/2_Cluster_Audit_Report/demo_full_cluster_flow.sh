@@ -27,16 +27,16 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.13" "sudo sysctl
 # BƯỚC 2: QUÉT LỖI (AUDIT)
 log_info "BƯỚC 2: Đang kích hoạt Audit toàn cụm để nhận diện các vi phạm bảo mật..."
 # Chỉ grep các ID quan trọng để log không quá dài cho người xem
-sudo bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*8|REPORT FROM NODE" -A 2
+bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*8|REPORT FROM NODE" -A 2
 
 # BƯỚC 3: VÁ LỖI (HARDEN)
 log_info "BƯỚC 4: Kích hoạt Hardening tập trung để vá lỗi cho tất cả các Nodes..."
-sudo bash "$DIR/cis-tool.sh" harden cluster > /dev/null
+bash "$DIR/cis-tool.sh" harden cluster > /dev/null
 log_ok "Hệ thống đã hoàn tất tiến trình tự động khắc phục lỗi."
 
 # BƯỚC 4: XÁC MINH (VERIFY)
 log_info "BƯỚC 5: Kiểm toán lại lần cuối để xác nhận tính tuân thủ..."
-sudo bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*8|REPORT FROM NODE" -A 2
+bash "$DIR/cis-tool.sh" audit cluster | grep -Ei "ID .*3|ID .*6|ID .*8|REPORT FROM NODE" -A 2
 
 # BƯỚC 5: XUẤT BÁO CÁO (OUTPUT)
 log_info "BƯỚC 6: Tổng hợp dữ liệu và xuất báo cáo Excel cho toàn bộ dự án..."

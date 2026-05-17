@@ -6,7 +6,7 @@ import re
 import shlex
 from datetime import datetime, timezone
 
-from models import AuditReport, AuditScore, CheckResult
+from models.audit import AuditReport, AuditScore, CheckResult
 
 logger = logging.getLogger(__name__)
 

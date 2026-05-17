@@ -5,12 +5,12 @@ def test_parse_audit_output(sample_audit_json):
     report = parse_audit_output(sample_audit_json, "10.0.1.11")
 
     assert report.node == "10.0.1.11"
-    assert report.total_checks == 3
-    assert report.passed == 1
-    assert report.failed == 1
-    assert report.manual == 1
+    assert report.score.total == 3
+    assert report.score.passed == 1
+    assert report.score.failed == 1
+    assert report.score.manual == 1
     # score = 1 / (3-1) * 100 = 50%
-    assert report.score == 50.0
+    assert report.score.compliance_pct == 50.0
 
 def test_parse_invalid_json():
     report = parse_audit_output("not json", "10.0.1.11")

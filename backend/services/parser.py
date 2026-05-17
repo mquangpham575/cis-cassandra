@@ -8,7 +8,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 
-from models.audit import CheckResult, AuditReport
+from models.audit import CheckResult, AuditReport, AuditScore
 from models.node import NodeInfo
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def parse_audit_output(raw_json: str, node_ip: str) -> AuditReport:
                     failed=0,
                     manual=0,
                     errors=1,
-                    score=0.0,
+                    score=AuditScore(total=0, automated=0, manual=0, passed=0, failed=0, needs_review=0),
                     checks=[],
                 )
         else:
@@ -50,7 +50,7 @@ def parse_audit_output(raw_json: str, node_ip: str) -> AuditReport:
                 failed=0,
                 manual=0,
                 errors=1,
-                score=0.0,
+                score=AuditScore(total=0, automated=0, manual=0, passed=0, failed=0, needs_review=0),
                 checks=[],
             )
 
@@ -59,26 +59,36 @@ def parse_audit_output(raw_json: str, node_ip: str) -> AuditReport:
 
     for item in raw_checks:
         try:
+            bash_status = item.get("status", "ERROR")
+            status_map = {"PASS": "PASS", "FAIL": "FAIL", "MANUAL": "NEEDS_REVIEW", "ERROR": "ERROR"}
+            unified_status = status_map.get(bash_status, bash_status)
+            
             check = CheckResult(
-                check_id=item.get("check_id", "unknown"),
+                # Frontend Fields
+                id=item.get("check_id", "unknown"),
                 title=item.get("title", "Unknown check"),
-                status=item.get("status", "ERROR"),
+                status=unified_status,
+                type="manual" if bash_status == "MANUAL" else "automated",
+                section=item.get("section", ""),
+                evidence=item.get("current_value", ""),
+                remediable=bool(item.get("remediation", "")),
+                
+                # Backend/Bash Fields
+                check_id=item.get("check_id", "unknown"),
                 severity=item.get("severity", "MEDIUM"),
                 current_value=item.get("current_value", ""),
                 expected_value=item.get("expected_value", ""),
                 remediation=item.get("remediation", ""),
-                section=item.get("section", ""),
                 node=node_ip,
-                timestamp=datetime.utcnow(),
             )
             checks.append(check)
         except Exception as e:
             logger.warning(f"Failed to parse check {item}: {e}")
             checks.append(CheckResult(
+                id=item.get("check_id", "unknown"),
                 check_id=item.get("check_id", "unknown"),
                 title=item.get("title", "Parse error"),
                 status="ERROR",
-                severity="LOW",
                 node=node_ip,
             ))
 
@@ -91,15 +101,23 @@ def parse_single_check(line: str, node_ip: str) -> Optional[CheckResult]:
     """
     try:
         item = json.loads(line)
+        bash_status = item.get("status", "ERROR")
+        status_map = {"PASS": "PASS", "FAIL": "FAIL", "MANUAL": "NEEDS_REVIEW", "ERROR": "ERROR"}
+        unified_status = status_map.get(bash_status, bash_status)
+        
         return CheckResult(
+            id=item.get("check_id", "unknown"),
             check_id=item.get("check_id", "unknown"),
             title=item.get("title", ""),
-            status=item.get("status", "ERROR"),
+            status=unified_status,
+            type="manual" if bash_status == "MANUAL" else "automated",
             severity=item.get("severity", "MEDIUM"),
+            evidence=item.get("current_value", ""),
             current_value=item.get("current_value", ""),
             expected_value=item.get("expected_value", ""),
             remediation=item.get("remediation", ""),
             section=item.get("section", ""),
+            remediable=bool(item.get("remediation", "")),
             node=node_ip,
         )
     except (json.JSONDecodeError, Exception) as e:

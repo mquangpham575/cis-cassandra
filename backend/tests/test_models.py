@@ -20,9 +20,9 @@ def test_audit_report_from_checks():
     ]
     report = AuditReport.from_checks("10.0.1.11", checks)
 
-    assert report.total_checks == 3
-    assert report.passed == 1
-    assert report.failed == 1
-    assert report.manual == 1
+    assert report.score.total == 3
+    assert report.score.passed == 1
+    assert report.score.failed == 1
+    assert report.score.manual == 1
     # score = 1 / (3-1) * 100 = 50%
-    assert report.score == 50.0
+    assert report.score.compliance_pct == 50.0

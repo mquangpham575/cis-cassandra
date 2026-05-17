@@ -3,35 +3,38 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../.."
 export NO_JSON=1
 
+# Load common properties if available
+if [[ -f "$DIR/scripts/lib/common.sh" ]]; then source "$DIR/scripts/lib/common.sh"; fi
+
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BLUE='\033[0;34m'; NC='\033[0m'
 log_header() { echo -e "\n${CYAN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"; echo -e "┃ $* "; echo -e "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"; }
 log_info()   { echo -e "${BLUE}[ℹ]${NC} $*"; }
 log_ok()     { echo -e "${GREEN}[✔] PASS:${NC} $*"; }
 
-log_header "FLOW 3: BẢO MẬT MẠNG (DISABLE IPV6)"
+log_header "FLOW 3: BẢO MẬT MẠNG (DISABLE IPV6) TRÊN NODE 1 (10.0.1.11)"
 
 # 1. LÀM SAI (BREAK)
-log_info "BƯỚC 1: Bật IPv6 (Không khuyến nghị cho Cassandra)..."
-sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0 > /dev/null
-echo -e "   -> Trạng thái hiện tại: disable_ipv6 = $(sysctl -n net.ipv6.conf.all.disable_ipv6)"
+log_info "BƯỚC 1: Bật IPv6 (Không khuyến nghị cho Cassandra) trên Node 1..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0" > /dev/null
+echo -e "   -> Trạng thái hiện tại trên Node 1: disable_ipv6 = $(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" 'sysctl -n net.ipv6.conf.all.disable_ipv6')"
 
 # 2. KIỂM TRA (AUDIT)
-log_info "BƯỚC 2: Phát hiện cấu hình mạng không an toàn..."
-sudo -E bash "$DIR/cis-tool.sh" audit --section os | grep -Ei "ID .*8" -A 5
+log_info "BƯỚC 2: Phát hiện cấu hình mạng không an toàn trên Node 1..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
 
 # 3. VÁ LỖI (HARDEN)
-log_info "BƯỚC 3: Vô hiệu hóa IPv6 tự động..."
-sudo -E bash "$DIR/cis-tool.sh" harden --section os > /dev/null
-log_ok "Lệnh Hardening đã được thực thi."
+log_info "BƯỚC 3: Vô hiệu hóa IPv6 tự động trên Node 1..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo bash ~/cis-tool/cis-tool.sh harden --section os" > /dev/null
+log_ok "Lệnh Hardening đã được thực thi trên Node 1."
 
 # 4. XÁC NHẬN (VERIFY)
-log_info "BƯỚC 4: Xác minh trạng thái mạng..."
-sudo -E bash "$DIR/cis-tool.sh" audit --section os | grep -Ei "ID .*8" -A 5
+log_info "BƯỚC 4: Xác minh trạng thái mạng trên Node 1..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo bash ~/cis-tool/cis-tool.sh audit --section os" | grep -Ei "ID .*8" -A 5
 
 # 5. XUẤT BÁO CÁO (OUTPUT)
 log_info "BƯỚC 5: Khởi tạo báo cáo cho riêng hạng mục này..."
-sudo bash "$DIR/cis-tool.sh" audit --section os > /dev/null
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@10.0.1.11" "sudo NO_JSON= bash ~/cis-tool/cis-tool.sh audit --section os" | grep "^{" > /tmp/cis_results.json
 python3 "$DIR/scripts/export_excel.py"
 log_ok "Báo cáo Excel đã sẵn sàng: CIS_Cassandra_Compliance_Report.xlsx"
 
-log_header "KẾT THÚC FLOW 3: HỆ THỐNG ĐÃ AN TOÀN & CÓ BÁO CÁO"
+log_header "KẾT THÚC FLOW 3: NODE 1 ĐÃ AN TOÀN & CÓ BÁO CÁO"

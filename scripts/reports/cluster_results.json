@@ -1,0 +1,3 @@
+{"check_id":"1.1.1","title":"Ensure cassandra configuration file has secure permissions","status":"PASS","severity":"MEDIUM","current_value":"0640","expected_value":"0640 or less","remediation":"","section":"os","node":"10.0.1.11"}
+{"check_id":"2.1.1","title":"Ensure password authentication is enabled","status":"FAIL","severity":"HIGH","current_value":"AllowAllAuthenticator","expected_value":"PasswordAuthenticator","remediation":"Enable PasswordAuthenticator in cassandra.yaml","section":"os","node":"10.0.1.11"}
+{"check_id":"3.1.1","title":"Ensure internode encryption is enabled","status":"MANUAL","severity":"MEDIUM","current_value":"none","expected_value":"all","remediation":"Set internode_encryption: all in cassandra.yaml","section":"os","node":"10.0.1.12"}

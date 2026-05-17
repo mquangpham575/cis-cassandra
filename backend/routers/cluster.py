@@ -6,7 +6,7 @@ from functools import partial
 
 from fastapi import APIRouter
 
-from models import NodeStatus
+from models.node import NodeStatus
 from services import ssh_runner
 from config import settings
 

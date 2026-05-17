@@ -6,7 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from models import HardenRequest, HardenResult
+from models.audit import HardenRequest, HardenResult
 from services import ssh_runner, audit_parser
 from config import settings
 

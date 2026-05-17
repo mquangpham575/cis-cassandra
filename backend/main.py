@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import audit, remediate, nodes, metrics, report, notes, cluster
-from websockets.audit_ws import audit_websocket_handler
+from ws_endpoints.audit_ws import audit_websocket_handler
 from services.ssh import ssh_service
 from services.cassandra_store import notes_store
 

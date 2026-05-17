@@ -1,10 +1,6 @@
-"""
-Models cho thông tin node Cassandra.
-"""
 from pydantic import BaseModel, Field
 from typing import Literal, Optional, List
 from datetime import datetime
-
 
 class NodeInfo(BaseModel):
     """Thông tin cơ bản 1 node."""
@@ -17,12 +13,17 @@ class NodeInfo(BaseModel):
     tokens: int = 0
     host_id: str = ""
 
-
 class NodeStatus(BaseModel):
-    """Trạng thái chi tiết 1 node (nodetool output)."""
+    """Trạng thái chi tiết 1 node (kết hợp nodetool và ping reachability)."""
+    # -- Frontend Fields --
     ip: str
-    status: Literal["UP", "DOWN", "UNKNOWN"]
-    cassandra_version: str
+    reachable: bool = False
+    cassandra_running: bool = False
+    latency_ms: Optional[float] = None
+    
+    # -- Old Backend Fields --
+    status: str = "UNKNOWN"
+    cassandra_version: str = ""
     java_version: str = ""
     python_version: str = ""
     uptime: str = ""
@@ -35,12 +36,11 @@ class NodeStatus(BaseModel):
     host_id: str = ""
     last_checked: datetime = Field(default_factory=datetime.utcnow)
 
-
 class ComplianceReport(BaseModel):
     """Báo cáo compliance tổng hợp tất cả nodes."""
     total_nodes: int
     nodes_up: int
     nodes_down: int
     overall_score: float
-    reports: list  # List[AuditReport] — sẽ import khi cần
+    reports: list  # List[AuditReport]
     generated_at: datetime = Field(default_factory=datetime.utcnow)

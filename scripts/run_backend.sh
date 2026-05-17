@@ -46,7 +46,7 @@ run_backend() {
   export API_PORT="${API_PORT:-8000}"
   log "Starting FastAPI backend on ${API_HOST}:${API_PORT}"
   cd "$BACKEND_DIR"
-  exec uvicorn main:app --host "$API_HOST" --port "$API_PORT" --ws wsproto
+  exec uvicorn main:app --host "$API_HOST" --port "$API_PORT"
 }
 
 main() {
