@@ -49,7 +49,7 @@ async def audit_websocket_handler(websocket: WebSocket, node_ip: str):
                 "passed": report.passed,
                 "failed": report.failed,
                 "manual": report.manual,
-                "score": report.score,
+                "score": report.score.compliance_pct,
             }
         })
 
