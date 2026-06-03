@@ -14,6 +14,7 @@ export function CompliancePage() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [remediating, setRemediating] = useState<string | null>(null)
   const [hardening, setHardening] = useState<boolean>(false)
+  const [exporting, setExporting] = useState<boolean>(false)
   // C3: Track status fetch failures so the UI can warn the user
   const [statusError, setStatusError] = useState<boolean>(false)
 
@@ -35,6 +36,26 @@ export function CompliancePage() {
       console.error(err)
     } finally {
       setHardening(false)
+    }
+  }
+
+  const handleExportCluster = async () => {
+    setExporting(true)
+    try {
+      const blob = await api.exportClusterAudit()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'CIS_Cassandra_Cluster_Report.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Export failed. Please make sure you have run the audit first.')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -66,17 +87,24 @@ export function CompliancePage() {
         <div className="flex gap-2">
           <button
             onClick={handleRunAudit}
-            disabled={state.status === 'loading' || hardening}
+            disabled={state.status === 'loading' || hardening || exporting}
             className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
           >
             {state.status === 'loading' ? 'Auditing…' : 'Run Audit'}
           </button>
           <button
             onClick={handleHardenCluster}
-            disabled={state.status === 'loading' || hardening}
+            disabled={state.status === 'loading' || hardening || exporting}
             className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
           >
             {hardening ? 'Hardening…' : 'Harden'}
+          </button>
+          <button
+            onClick={handleExportCluster}
+            disabled={state.status !== 'success' || hardening || exporting}
+            className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-sm font-semibold transition-colors text-white"
+          >
+            {exporting ? 'Exporting…' : 'Export Report'}
           </button>
         </div>
       </div>

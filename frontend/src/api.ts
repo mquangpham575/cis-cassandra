@@ -75,6 +75,13 @@ export const api = {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
     return res.blob()
   },
+  exportClusterAudit: async () => {
+    const res = await fetch(`${BASE}/api/audit/cluster/export`, {
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    return res.blob()
+  },
 
   // Notes API
   getNotes: () => get<Note[]>('/api/notes'),

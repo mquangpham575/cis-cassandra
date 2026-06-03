@@ -116,7 +116,7 @@ case "${1:-}" in
             
             # 1. Tạo thư mục và đồng bộ script mới nhất
             ssh cassandra@$ip "mkdir -p ~/cis-cassandra/scripts/"
-            rsync -az -e ssh "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
+            rsync -az --delete -e ssh "$SCRIPT_DIR/" cassandra@$ip:~/cis-cassandra/scripts/
             
             # 2. Chạy kịch bản Harden (Sẽ dùng lệnh sed để sửa file tự động)
             ssh -t cassandra@$ip "sudo ~/cis-cassandra/scripts/cis-tool.sh $action"

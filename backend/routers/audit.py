@@ -138,6 +138,81 @@ async def get_latest_audit(node_ip: str):
     return report
 
 
+@router.get("/cluster/export")
+async def export_cluster_audit():
+    """
+    Export the latest cached cluster-wide audit results to a single Excel file
+    with separate sheets per node.
+    """
+    entries = []
+    missing_nodes = []
+    
+    for node_ip in settings.node_ips:
+        report = _audit_cache.get(node_ip)
+        if not report:
+            missing_nodes.append(node_ip)
+            continue
+            
+        for check in report.checks:
+            entries.append({
+                "node": report.node,
+                "check_id": getattr(check, 'check_id', ''),
+                "title": getattr(check, 'title', ''),
+                "status": getattr(check, 'status', ''),
+                "severity": getattr(check, 'severity', ''),
+                "current_value": getattr(check, 'current_value', '') or "",
+                "expected_value": getattr(check, 'expected_value', '') or "",
+                "remediation": getattr(check, 'remediation', '') or "",
+            })
+            
+    if missing_nodes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing cached audit results for nodes: {', '.join(missing_nodes)}. Please run a cluster audit first."
+        )
+
+    if not entries:
+        raise HTTPException(status_code=400, detail="No audit data found to export.")
+
+    # Temp files
+    ts = int(time.time())
+    tmp_dir = tempfile.gettempdir()
+    json_path = os.path.join(tmp_dir, f"cluster_audit_export_{ts}.json")
+    xlsx_path = os.path.join(tmp_dir, f"cluster_audit_export_{ts}.xlsx")
+
+    # Write newline-delimited JSON as expected by export_excel
+    with open(json_path, 'w', encoding='utf-8') as jf:
+        for obj in entries:
+            jf.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    # Dynamically load scripts/export_excel.py and call export_to_excel
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    script_path = os.path.abspath(os.path.join(repo_root, '..', 'scripts', 'export_excel.py'))
+    if not os.path.exists(script_path):
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts', 'export_excel.py'))
+
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=500, detail=f"export_excel.py not found at {script_path}")
+
+    spec = importlib.util.spec_from_file_location("export_excel", script_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    try:
+        mod.export_to_excel(json_path, xlsx_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cluster export failed: {e}")
+
+    if not os.path.exists(xlsx_path):
+        raise HTTPException(status_code=500, detail="Export did not produce an xlsx file")
+
+    return FileResponse(
+        xlsx_path,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename="CIS_Cassandra_Cluster_Report.xlsx"
+    )
+
+
 @router.get("/{node_ip}/export")
 async def export_latest_audit(node_ip: str):
     """

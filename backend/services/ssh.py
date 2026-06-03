@@ -85,7 +85,7 @@ class SSHService:
 
     async def _run_audit_logs(self, node_ip: str, section: Optional[str] = None) -> str:
         cmd = f"sudo -n {settings.cis_tool_path} audit"
-        if section:
+        if section and section != "all":
             cmd += f" {section}"
         return await self.run_command(node_ip, cmd)
 
@@ -102,7 +102,7 @@ class SSHService:
         Thực hiện remediation cho các FAIL checks.
         """
         cmd = f"sudo -n {settings.cis_tool_path} harden"
-        if section:
+        if section and section != "all":
             cmd += f" {section}"
 
         return await self.run_command(node_ip, cmd)
@@ -115,14 +115,14 @@ class SSHService:
         cmd = f"sudo -n {settings.cis_tool_path} verify"
         return await self.run_command(node_ip, cmd)
 
-    async def stream_audit(self, node_ip: str) -> AsyncGenerator[str, None]:
+    async def stream_audit(self, node_ip: str, section: Optional[str] = None) -> AsyncGenerator[str, None]:
         """
         Emit audit output lines after running the real audit command.
         cis-tool.sh does not implement a true stream mode, so we
         forward the final JSON report line after the dashboard text.
         """
         try:
-            output = await self._run_audit_logs(node_ip)
+            output = await self._run_audit_logs(node_ip, section=section)
             for line in output.splitlines():
                 line = line.strip()
                 if line:

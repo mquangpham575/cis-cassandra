@@ -10,7 +10,6 @@ const SECTIONS = [
   { value: '3', label: 'Section 3 — Authorization' },
   { value: '4', label: 'Section 4 — Logging' },
   { value: '5', label: 'Section 5 — Encryption' },
-  { value: 'os', label: 'Section OS — OS Hardening' },
 ]
 
 function lineColor(line: string): string {
@@ -87,7 +86,7 @@ export function AuditLivePage() {
   const handleStart = () => {
     if (!selectedIp) return
     setLines([
-      `$ cis-tool.sh --audit --section ${selectedSection} --node ${selectedIp}`,
+      `$ cis-tool.sh audit ${selectedSection}`,
       `Starting audit on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
       '',
     ])
@@ -100,7 +99,7 @@ export function AuditLivePage() {
     if (!selectedIp) return
     setIsHardening(true)
     setLines([
-      `$ cis-tool.sh --harden --section ${selectedSection} --node ${selectedIp}`,
+      `$ cis-tool.sh harden ${selectedSection}`,
       `Running automated hardening on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
       'Applying CIS recommended hardening controls...',
       '',
@@ -131,7 +130,7 @@ export function AuditLivePage() {
       // Auto-trigger audit after 1.5s
       setTimeout(() => {
         setLines([
-          `$ cis-tool.sh --audit --section ${selectedSection} --node ${selectedIp}`,
+          `$ cis-tool.sh audit ${selectedSection}`,
           `Starting verification audit on ${selectedIp} at ${new Date().toLocaleTimeString()}...`,
           '',
         ])

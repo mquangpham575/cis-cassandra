@@ -60,13 +60,18 @@ def _now() -> str:
 def audit_command(section: str = "all") -> str:
     """Build the cis-tool.sh audit command for a given section."""
     section = _validate_section(section)
-    return f"sudo {CIS_TOOL_PATH} audit {shlex.quote(section)}"
+    parts = ["sudo", CIS_TOOL_PATH, "audit"]
+    if section and section != "all":
+        parts.append(section)
+    return shlex.join(parts)
 
 
 def harden_command(section: str = "all", dry_run: bool = False) -> str:
     """Build the cis-tool.sh harden command."""
     section = _validate_section(section)
-    parts = ["sudo", CIS_TOOL_PATH, "harden", section]
+    parts = ["sudo", CIS_TOOL_PATH, "harden"]
+    if section and section != "all":
+        parts.append(section)
     if dry_run:
         parts.append("--dry-run")
     return shlex.join(parts)

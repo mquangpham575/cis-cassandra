@@ -24,20 +24,22 @@ async def audit_websocket_handler(websocket: WebSocket, node_ip: str):
         return
 
     try:
+        section = websocket.query_params.get("section")
         await websocket.send_json({
             "type": "start",
             "node": node_ip,
-            "message": f"Starting audit on {node_ip}..."
+            "message": f"Starting audit on {node_ip} (section: {section or 'all'})..."
         })
 
         raw_output_lines = []
 
-        async for line in ssh_service.stream_audit(node_ip):
+        async for line in ssh_service.stream_audit(node_ip, section=section):
             raw_output_lines.append(line)
-            await websocket.send_json({
-                "type": "log",
-                "message": line,
-            })
+            if not line.strip().startswith("{"):
+                await websocket.send_json({
+                    "type": "log",
+                    "message": line,
+                })
 
         raw_output = "\n".join(raw_output_lines)
         report = parse_audit_output(raw_output, node_ip)

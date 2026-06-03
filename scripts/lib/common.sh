@@ -62,10 +62,10 @@ cqlsh_query() {
 build_report() {
   local node="$1" checks_file="$2"
   local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  local total=$(grep -c '"check_id":' "$checks_file" 2>/dev/null || echo 0)
-  local passed=$(grep -c '"status":"PASS"' "$checks_file" 2>/dev/null || echo 0)
-  local failed=$(grep -c '"status":"FAIL"' "$checks_file" 2>/dev/null || echo 0)
-  local manual=$(grep -c '"status":"MANUAL"' "$checks_file" 2>/dev/null || echo 0)
+  local total=$(grep '"check_id":' "$checks_file" 2>/dev/null | wc -l)
+  local passed=$(grep '"status":"PASS"' "$checks_file" 2>/dev/null | wc -l)
+  local failed=$(grep '"status":"FAIL"' "$checks_file" 2>/dev/null | wc -l)
+  local manual=$(grep '"status":"MANUAL"' "$checks_file" 2>/dev/null | wc -l)
   
   printf '{\n  "node": "%s",\n  "timestamp": "%s",\n  "score": {\n    "total": %s,\n    "passed": %s,\n    "failed": %s,\n    "manual": %s\n  },\n  "checks": [\n' "$node" "$timestamp" "$total" "$passed" "$failed" "$manual"
   
